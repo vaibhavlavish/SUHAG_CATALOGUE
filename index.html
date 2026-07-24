@@ -426,6 +426,7 @@ function rebuildItems(catalogueData){
 
       return {
         barcode: node.activeBarcode || bc,
+        catalogKey: bc, // stable identifier for deep links — doesn't change even if a linked group's active tag does
         images: imgEntries.map(e => e.url),
         uploadedAt: node.uploadedAt || newestImageAt || 0,
         categoryKey: categoryKey(displayName),
@@ -465,7 +466,22 @@ function renderHomeBanners(){
     el.addEventListener('click', () => {
       const banner = HOME_BANNERS[Number(el.dataset.idx)];
       if (!banner) return;
-      ACTIVE_CATEGORY = (banner.categoryKey === 'all') ? 'All' : banner.categoryKey;
+
+      if (banner.itemBarcode) {
+        const item = ALL_ITEMS.find(i => i.catalogKey.toUpperCase() === banner.itemBarcode.toUpperCase());
+        if (item) {
+          ACTIVE_CATEGORY = item.categoryKey;
+          goToView('browse');
+          renderCategorySlider();
+          renderGrid();
+          openLightbox(item);
+          return;
+        }
+        // Item no longer exists (sold with no replacement, deleted, etc.) —
+        // fall through to a plain "All" browse rather than doing nothing.
+      }
+
+      ACTIVE_CATEGORY = (banner.categoryKey === 'all' || !banner.categoryKey) ? 'All' : banner.categoryKey;
       goToView('browse');
       renderCategorySlider();
       renderGrid();
@@ -517,36 +533,90 @@ window.addEventListener('popstate', e => {
 
 // Live listeners — reflect sales, new arrivals, rate changes, and home
 // banner edits as they happen, no refresh needed.
+let itemsFirstLoadDone = false;
+let bannersFirstLoadDone = false;
+let initialViewDecided = false;
+
 onValue(ref(db, 'catalogue/items'), snap => {
   rebuildItems(snap.val() || {});
+  itemsFirstLoadDone = true;
+  maybeDecideInitialView();
 }, err => {
   document.getElementById('loading-msg').textContent = 'Could not load the collection right now.';
   console.error(err);
+  itemsFirstLoadDone = true;
+  maybeDecideInitialView();
 });
 
-let homeBannersFirstLoad = true;
 onValue(ref(db, 'catalogue/homeBanners'), snap => {
   const val = snap.val() || {};
   HOME_BANNERS = Object.keys(val)
-    .map(id => ({ id, imageUrl: val[id].imageUrl, categoryKey: val[id].categoryKey || 'all', order: val[id].order || 0 }))
+    .map(id => ({
+      id,
+      imageUrl: val[id].imageUrl,
+      categoryKey: val[id].categoryKey || 'all',
+      itemBarcode: val[id].itemBarcode || null,
+      order: val[id].order || 0,
+    }))
     .sort((a, b) => a.order - b.order);
   renderHomeBanners();
-  if (homeBannersFirstLoad) {
-    // Real banner data has now actually arrived (this listener is async, so
-    // deciding the initial view any earlier would run against an empty list
-    // every time, even when banners exist). Decide the very first view here.
-    // This establishes the history baseline — replaceState, not pushState,
-    // since it's not a user navigation action; back from here should be
-    // free to leave the site, same as arriving at any normal home page.
-    homeBannersFirstLoad = false;
-    const applied = applyView('home');
-    history.replaceState({ screen: applied, category: ACTIVE_CATEGORY }, '', location.pathname);
-  } else if (CURRENT_VIEW === 'home' && !HOME_BANNERS.length) {
+  bannersFirstLoadDone = true;
+  if (!maybeDecideInitialView() && initialViewDecided && CURRENT_VIEW === 'home' && !HOME_BANNERS.length) {
     // Shop just removed their last banner while a customer was sitting on
     // the home view — fall back gracefully instead of showing it empty.
     applyView('browse');
   }
 }, err => console.error(err));
+
+// Deciding the initial screen needs BOTH catalogue items (to resolve a
+// shared ?item= link to an actual product) and home banners (to know
+// whether "home" is even a real destination) to have loaded at least once.
+// Runs exactly once; returns true if it actually made the decision this call.
+function maybeDecideInitialView(){
+  if (initialViewDecided || !itemsFirstLoadDone || !bannersFirstLoadDone) return false;
+  initialViewDecided = true;
+
+  // Shareable deep links: ?item=<barcode> opens straight into one product's
+  // photo popup (for Instagram/WhatsApp links to one specific piece);
+  // ?category=<name> opens browsing pre-filtered to that category. Both use
+  // replaceState for this first entry — arriving via a shared link is the
+  // start of the session, same as any normal page load; back should still
+  // be free to leave the site from here, not get stuck retracing the deep link.
+  const params = new URLSearchParams(location.search);
+  const itemParam = params.get('item');
+  const categoryParam = params.get('category');
+
+  if (itemParam) {
+    const item = ALL_ITEMS.find(i => i.catalogKey.toUpperCase() === itemParam.toUpperCase());
+    if (item) {
+      ACTIVE_CATEGORY = item.categoryKey;
+      applyView('browse');
+      renderCategorySlider();
+      renderGrid();
+      history.replaceState({ screen: 'browse', category: ACTIVE_CATEGORY }, '', location.pathname);
+      openLightboxDom(item);
+      history.pushState({ screen: 'lightbox', category: ACTIVE_CATEGORY, barcode: item.barcode }, '', location.pathname);
+      return true;
+    }
+    // Item not found (sold with nothing left in its group, deleted, typo in
+    // the shared link, etc.) — fall through to category/default below
+    // rather than showing a broken or blank page.
+  }
+
+  if (categoryParam) {
+    const key = categoryParam.toLowerCase();
+    ACTIVE_CATEGORY = ALL_ITEMS.some(i => i.categoryKey === key) ? key : 'All';
+    applyView('browse');
+    renderCategorySlider();
+    renderGrid();
+    history.replaceState({ screen: 'browse', category: ACTIVE_CATEGORY }, '', location.pathname);
+    return true;
+  }
+
+  const applied = applyView('home');
+  history.replaceState({ screen: applied, category: ACTIVE_CATEGORY }, '', location.pathname);
+  return true;
+}
 </script>
 
 </body>
