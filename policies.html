@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suhag Jewellers — Policies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --oxblood:#3B0E17; --oxblood-deep:#2A0A10; --gold:#C6A15B; --gold-soft:#E7C9A9;
+    --ivory:#FBF6EE; --ink:#2A2420; --ink-soft:#6b6058;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--ivory); color:var(--ink);
+    font-family:'Work Sans', sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Cormorant Garamond', serif;}
+
+  header{
+    background:linear-gradient(180deg, var(--oxblood) 0%, var(--oxblood-deep) 100%);
+    color:var(--ivory); padding:22px 20px 26px; position:relative; overflow:hidden;
+  }
+  header::after{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 85% -10%, rgba(198,161,91,.18), transparent 45%),
+               radial-gradient(circle at 5% 110%, rgba(198,161,91,.12), transparent 40%);
+    pointer-events:none;
+  }
+  .shop-name{font-size:26px; font-weight:600; letter-spacing:.3px; margin:0; position:relative;}
+  .shop-name em{color:var(--gold); font-style:normal;}
+  .back-link{
+    display:inline-block; margin-top:10px; color:var(--gold-soft); font-size:13px;
+    text-decoration:none; position:relative;
+  }
+
+  main{max-width:760px; margin:0 auto; padding:32px 20px 60px;}
+  .updated-note{font-size:12.5px; color:var(--ink-soft); margin:0 0 30px;}
+
+  nav.jump-links{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:34px;}
+  nav.jump-links a{
+    text-decoration:none; font-size:12.5px; font-weight:600; color:var(--oxblood);
+    border:1.5px solid #E6DCCB; border-radius:999px; padding:7px 15px;
+  }
+
+  section{margin-bottom:38px;}
+  section h2{font-size:22px; font-weight:600; margin:0 0 12px;}
+  section p{font-size:14px; line-height:1.7; color:var(--ink); margin:0 0 12px;}
+  section ul{margin:0 0 12px; padding-left:20px;}
+  section li{font-size:14px; line-height:1.7; color:var(--ink); margin-bottom:6px;}
+
+  .contact-box{
+    background:#fff; border:1px solid #EEE3CC; border-radius:14px; padding:18px 20px; margin-top:40px;
+  }
+  .contact-box p{margin:0 0 4px; font-size:13.5px;}
+  .contact-box a{color:var(--oxblood); font-weight:600; text-decoration:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <p class="shop-name display"><em>Suhag</em> Jewellers</p>
+  <a class="back-link" href="./">← Back to the catalogue</a>
+</header>
+
+<main>
+  <p class="updated-note">Last updated: July 2026</p>
+
+  <nav class="jump-links">
+    <a href="#privacy">Privacy Policy</a>
+    <a href="#terms">Terms of Service</a>
+    <a href="#shipping">Shipping Policy</a>
+    <a href="#refund">Refund &amp; Exchange Policy</a>
+  </nav>
+
+  <section id="privacy">
+    <h2 class="display">Privacy Policy</h2>
+    <p>This website is a photo catalogue of our in-store collection. It does not have any login, checkout, or contact form, and does not collect, store, or share any personal information about visitors.</p>
+    <p>When you tap a WhatsApp or phone link on this site, you leave this website and go directly into WhatsApp or your phone's dialer — any conversation, photo, or number you share from that point on is handled entirely within WhatsApp, under WhatsApp's own privacy terms, not ours.</p>
+    <p>If you choose to leave a review through the "Write a Review" link, that also happens entirely on Google's own review system — we don't receive or store that information on this website either.</p>
+  </section>
+
+  <section id="terms">
+    <h2 class="display">Terms of Service</h2>
+    <p>This website exists to help you browse our current in-stock collection and its prices. It is not a store: nothing can be purchased, paid for, or checked out on this website itself.</p>
+    <ul>
+      <li>Prices shown reflect current rates and are indicative — final pricing is confirmed at the time of sale.</li>
+      <li>An item shown here is not reserved or held for you until confirmed directly with us over WhatsApp or in-store.</li>
+      <li>All sales are completed either in person at our store or over WhatsApp, and are subject to the terms agreed at that time.</li>
+    </ul>
+  </section>
+
+  <section id="shipping">
+    <h2 class="display">Shipping Policy</h2>
+    <p>We do not offer website checkout or automated shipping. If a purchase made over WhatsApp or in-store needs to be shipped, delivery timelines, courier, and charges (if any) are discussed and agreed directly with you at the time of that sale.</p>
+  </section>
+
+  <section id="refund">
+    <h2 class="display">Refund &amp; Exchange Policy</h2>
+    <p>Since all sales happen in-store or over WhatsApp rather than through this website, our standard in-store return, exchange, and refund terms apply — these are explained to you at the time of purchase and printed on your invoice.</p>
+    <p>If anything is unclear about a purchase you've made, please reach out to us directly and we'll be happy to help.</p>
+  </section>
+
+  <div class="contact-box">
+    <p><b>Suhag Jewellers</b></p>
+    <p>24, High School Shopping Centre, Near Jalaram Khaman House, Chikhli, Navsari, Gujarat - 396521</p>
+    <p><a href="tel:+919327647044">+91 93276 47044</a></p>
+  </div>
+</main>
+
+</body>
+</html>
