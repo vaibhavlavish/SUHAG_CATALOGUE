@@ -47,7 +47,10 @@
   .category-chip.active{background:var(--oxblood); border-color:var(--oxblood); color:var(--ivory);}
 
   main{padding:16px 16px 100px; max-width:920px; margin:0 auto;}
-  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:14px;}
+  .grid{display:grid; grid-template-columns: 1fr; gap:18px;}
+  @media (min-width:700px){
+    .grid{grid-template-columns: repeat(3, 1fr); gap:18px;}
+  }
   .card{
     background:#fff; border:1px solid #EEE3CC; border-radius:14px; overflow:hidden;
     opacity:0; transform:translateY(10px); animation:riseIn .5s ease forwards; cursor:pointer;
@@ -56,8 +59,8 @@
   .card-photo{aspect-ratio:1/1; background:#F0EAD9; position:relative; overflow:hidden;}
   .card-photo img{width:100%; height:100%; object-fit:cover; display:block;}
   .card-photo .tag{
-    position:absolute; left:6px; bottom:6px; font-size:9.5px; letter-spacing:.3px;
-    color:var(--ink-soft); background:rgba(255,255,255,.8); padding:2px 6px; border-radius:5px;
+    position:absolute; left:8px; bottom:8px; font-size:11.5px; letter-spacing:.3px;
+    color:var(--ink-soft); background:rgba(255,255,255,.85); padding:3px 8px; border-radius:6px;
   }
 
   .state-msg{text-align:center; color:var(--ink-soft); font-size:13.5px; padding:60px 20px;}
@@ -192,14 +195,14 @@
       <p class="lb-name display" id="lightbox-item-name"></p>
       <p class="lb-size-row" id="lightbox-size-row">Size: <b id="lightbox-size"></b></p>
       <p class="lb-price" id="lightbox-price"></p>
-      <a class="lb-whatsapp-btn" id="lightbox-whatsapp" target="_blank" rel="noopener">💬 Ask about this piece on WhatsApp</a>
+      <a class="lb-whatsapp-btn" id="lightbox-whatsapp" target="_blank" rel="noopener">💬 Order this piece on WhatsApp</a>
     </div>
   </div>
 </div>
 
 <div class="contact-bar">
   <!-- Fill in the shop's actual WhatsApp number below (with country code, no + or spaces) -->
-  <a id="contact-link" href="https://wa.me/91XXXXXXXXXX" target="_blank" rel="noopener">💬 Message us about a piece</a>
+  <a id="contact-link" href="https://wa.me/919327647044" target="_blank" rel="noopener">💬 Order on WhatsApp</a>
 </div>
 
 <script type="module">
@@ -345,8 +348,8 @@ function shiftLightboxImage(delta){
 }
 
 function buildWhatsAppLink(item){
-  const baseHref = document.getElementById('contact-link').getAttribute('href') || 'https://wa.me/91XXXXXXXXXX';
-  const number = (baseHref.split('wa.me/')[1] || '91XXXXXXXXXX').split('?')[0];
+  const baseHref = document.getElementById('contact-link').getAttribute('href') || 'https://wa.me/919327647044';
+  const number = (baseHref.split('wa.me/')[1] || '919327647044').split('?')[0];
   const lines = [
     "Hi! I'm interested in this piece:",
     `Item: ${item.displayName || 'Jewellery item'}`,
@@ -399,7 +402,7 @@ function rebuildItems(catalogueData){
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
 
       return {
-        barcode: bc,
+        barcode: node.activeBarcode || bc,
         images: imgEntries.map(e => e.url),
         uploadedAt: node.uploadedAt || newestImageAt || 0,
         categoryKey: categoryKey(displayName),
