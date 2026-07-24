@@ -700,6 +700,20 @@ function maybeDecideInitialView(){
 const GOOGLE_MAPS_API_KEY = 'AIzaSyCBfJRhcD8Oas3gAX_mm1QQFQRrWiU_0So';
 const GOOGLE_PLACE_ID = 'ChIJoSJ1hJnt4DsRPnyWFI1nR4A';
 
+// Google gives no way to pick which of its reviews show — this hidden-list
+// is our own layer on top, managed from the Upload Terminal. Each review's
+// own `time` field (a stable per-review timestamp Google assigns) is the key.
+let HIDDEN_REVIEW_TIMES = new Set();
+let LAST_FETCHED_PLACE = null;
+let hiddenListLoaded = false;
+
+onValue(ref(db, 'catalogue/hiddenGoogleReviews'), snap => {
+  const val = snap.val() || {};
+  HIDDEN_REVIEW_TIMES = new Set(Object.keys(val).filter(k => val[k]));
+  hiddenListLoaded = true;
+  if (LAST_FETCHED_PLACE) renderGoogleReviews(LAST_FETCHED_PLACE);
+}, err => console.error(err));
+
 function renderStars(n){
   return '★★★★★☆☆☆☆☆'.slice(5 - n, 10 - n);
 }
@@ -735,6 +749,7 @@ function fetchGoogleReviews(){
         document.getElementById('reviews-scroll').innerHTML = '<p class="no-reviews-msg">Could not load reviews right now.</p>';
         return;
       }
+      LAST_FETCHED_PLACE = place;
       renderGoogleReviews(place);
     }
   );
@@ -751,7 +766,13 @@ function renderGoogleReviews(place){
     summary.innerHTML = `<span class="stars">${renderStars(Math.round(place.rating))}</span>${place.rating.toFixed(1)} out of 5 · ${place.user_ratings_total || 0} review${place.user_ratings_total === 1 ? '' : 's'} on Google`;
   }
 
-  const reviews = place.reviews || [];
+  // Only filter once we actually know the hidden list (avoids a flash of
+  // "no reviews" before Firebase has responded even once).
+  const allReviews = place.reviews || [];
+  const reviews = hiddenListLoaded
+    ? allReviews.filter(r => !HIDDEN_REVIEW_TIMES.has(String(r.time)))
+    : allReviews;
+
   if (!reviews.length) {
     scroll.innerHTML = '<p class="no-reviews-msg">No reviews yet on Google.</p>';
     return;
