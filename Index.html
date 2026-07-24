@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suhag Jewellers — Catalogue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --oxblood:#3B0E17; --oxblood-deep:#2A0A10; --gold:#C6A15B; --gold-soft:#E7C9A9;
+    --ivory:#FBF6EE; --ink:#2A2420; --ink-soft:#6b6058;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--ivory); color:var(--ink);
+    font-family:'Work Sans', sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Cormorant Garamond', serif;}
+
+  header{
+    background:linear-gradient(180deg, var(--oxblood) 0%, var(--oxblood-deep) 100%);
+    color:var(--ivory); padding:22px 20px 26px; position:relative; overflow:hidden;
+  }
+  header::after{
+    content:''; position:absolute; inset:0;
+    background:radial-gradient(circle at 85% -10%, rgba(198,161,91,.18), transparent 45%),
+               radial-gradient(circle at 5% 110%, rgba(198,161,91,.12), transparent 40%);
+    pointer-events:none;
+  }
+  .shop-row{display:flex; align-items:center; justify-content:space-between; gap:10px; position:relative;}
+  .shop-name{font-size:26px; font-weight:600; letter-spacing:.3px; margin:0;}
+  .shop-name em{color:var(--gold); font-style:normal;}
+  .tagline{margin:4px 0 0; font-size:13px; color:var(--gold-soft);}
+  .avail-row{position:relative; margin-top:16px; font-size:12.5px; color:var(--gold-soft); display:flex; align-items:center; gap:8px;}
+  .avail-dot{width:6px;height:6px;border-radius:50%;background:#7FD98A;box-shadow:0 0 0 3px rgba(127,217,138,.18); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+  .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:0; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
+  .category-slider{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 0;}
+  .category-slider::-webkit-scrollbar{display:none;}
+  .category-chip{
+    flex:0 0 auto; padding:8px 16px; border-radius:999px; border:1.5px solid #E6DCCB;
+    background:#fff; color:var(--ink-soft); font-family:'Work Sans',sans-serif; font-size:13px; font-weight:600;
+    white-space:nowrap; cursor:pointer;
+  }
+  .category-chip.active{background:var(--oxblood); border-color:var(--oxblood); color:var(--ivory);}
+
+  main{padding:16px 16px 100px; max-width:920px; margin:0 auto;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:14px;}
+  .card{
+    background:#fff; border:1px solid #EEE3CC; border-radius:14px; overflow:hidden;
+    opacity:0; transform:translateY(10px); animation:riseIn .5s ease forwards; cursor:pointer;
+  }
+  @keyframes riseIn{to{opacity:1; transform:translateY(0);}}
+  .card-photo{aspect-ratio:1/1; background:#F0EAD9; position:relative; overflow:hidden;}
+  .card-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+  .card-photo .tag{
+    position:absolute; left:6px; bottom:6px; font-size:9.5px; letter-spacing:.3px;
+    color:var(--ink-soft); background:rgba(255,255,255,.8); padding:2px 6px; border-radius:5px;
+  }
+
+  .state-msg{text-align:center; color:var(--ink-soft); font-size:13.5px; padding:60px 20px;}
+  .state-msg.hide{display:none;}
+
+  .trust-note{
+    max-width:920px; margin:34px auto 0; padding:16px 18px 100px; text-align:center;
+    font-size:12.5px; color:var(--ink-soft); border-top:1px solid #EAE0CB;
+  }
+  .trust-note b{color:var(--ink);}
+
+  /* Lightbox */
+  .lightbox{
+    position:fixed; inset:0; background:rgba(20,8,10,.94); z-index:40;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  .lightbox.open{opacity:1; pointer-events:auto;}
+  .lightbox-photo{
+    width:min(88vw, 460px); max-height:78vh; aspect-ratio:1/1; border-radius:10px;
+    background:#F0EAD9; overflow:hidden; display:flex; align-items:center; justify-content:center;
+  }
+  .lightbox-photo img{width:100%; height:100%; object-fit:contain; display:block;}
+  .lightbox-tag{
+    position:absolute; top:calc(50% - min(44vw,230px) - 34px); left:50%; transform:translateX(-50%);
+    color:var(--gold-soft); font-size:12.5px; letter-spacing:.4px;
+  }
+  .lightbox-close{
+    position:absolute; top:18px; right:18px; width:38px; height:38px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.12); color:#fff; font-size:18px; cursor:pointer;
+  }
+
+  .contact-bar{
+    position:fixed; bottom:0; left:0; right:0; z-index:15;
+    background:var(--oxblood); padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    box-shadow:0 -8px 20px -12px rgba(0,0,0,.4);
+  }
+  .contact-bar a{
+    width:100%; max-width:920px; margin:0 auto; display:block; text-align:center;
+    text-decoration:none; border-radius:11px; padding:13px 0;
+    background:var(--gold); color:var(--oxblood-deep);
+    font-family:'Work Sans',sans-serif; font-size:14.5px; font-weight:700;
+  }
+
+  @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="shop-row">
+    <div>
+      <p class="shop-name display"><em>Suhag</em> Jewellers</p>
+      <p class="tagline">Browse the collection &middot; message us your price</p>
+    </div>
+  </div>
+  <div class="avail-row">
+    <span class="avail-dot"></span>
+    <span id="avail-text">Loading…</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="category-slider" id="category-slider"></div>
+</div>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <p class="state-msg hide" id="empty-msg">No pieces in this category right now — try another, or message us directly.</p>
+  <p class="state-msg" id="loading-msg">Loading the collection…</p>
+</main>
+
+<div class="trust-note">
+  <b>Nothing here is leftover stock.</b> The moment a piece is sold in-store, it's removed from this page automatically — what you see is what's actually on the shelf today.
+</div>
+
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightbox-close">✕</button>
+  <span class="lightbox-tag" id="lightbox-tag"></span>
+  <div class="lightbox-photo" id="lightbox-photo"></div>
+</div>
+
+<div class="contact-bar">
+  <!-- Fill in the shop's actual WhatsApp number below (with country code, no + or spaces) -->
+  <a id="contact-link" href="https://wa.me/91XXXXXXXXXX" target="_blank" rel="noopener">💬 Message us about a piece</a>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// Same Firebase project as the main POS app. This page only ever READS the
+// `catalogue/items` path and (for grouping into categories) `jewelryData/products/{barcode}.itemName`.
+// It has no write access and never touches anything else in the database
+// (no rates, no customer data, no invoice history).
+const firebaseConfig = {
+  apiKey: "AIzaSyDaRjbdCnfx5-C4OXQaByZMxK2r0Cu19bI",
+  authDomain: "suhag-f53e4.firebaseapp.com",
+  databaseURL: "https://suhag-f53e4-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "suhag-f53e4",
+  storageBucket: "suhag-f53e4.firebasestorage.app",
+  messagingSenderId: "231258063675",
+  appId: "1:231258063675:web:1c79c2a0d4d5796a6d2d1e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let ALL_ITEMS = [];      // [{ barcode, imageUrl, uploadedAt, category }], available ones only
+let ACTIVE_CATEGORY = 'All';
+let productsCache = {};  // barcode -> itemName, refreshed lazily when a barcode isn't found in it
+
+function categoryKey(itemName){
+  return (itemName || '').toString().trim().toLowerCase();
+}
+function categoryLabel(key){
+  if (!key) return 'Other';
+  return key.replace(/\s+/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function renderCategorySlider(){
+  const keys = Array.from(new Set(ALL_ITEMS.map(i => i.categoryKey))).sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
+  const slider = document.getElementById('category-slider');
+  const chips = ['All', ...keys];
+  slider.innerHTML = chips.map(key => {
+    const label = key === 'All' ? 'All' : categoryLabel(key);
+    const active = key === ACTIVE_CATEGORY ? ' active' : '';
+    return `<button class="category-chip${active}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">${label}</button>`;
+  }).join('');
+
+  slider.querySelectorAll('.category-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      ACTIVE_CATEGORY = chip.dataset.key;
+      renderCategorySlider();
+      renderGrid();
+    });
+  });
+}
+
+function renderGrid(){
+  const items = ACTIVE_CATEGORY === 'All' ? ALL_ITEMS : ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY);
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = items.map((item, i) => `
+    <div class="card" style="animation-delay:${Math.min(i*0.03,0.6)}s" data-barcode="${item.barcode}">
+      <div class="card-photo">
+        <img src="${item.imageUrl}" alt="" loading="lazy">
+        <span class="tag">${item.barcode}</span>
+      </div>
+    </div>
+  `).join('');
+
+  grid.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => {
+      const item = ALL_ITEMS.find(i => i.barcode === card.dataset.barcode);
+      if (item) openLightbox(item);
+    });
+  });
+
+  document.getElementById('empty-msg').classList.toggle('hide', items.length > 0);
+}
+
+function openLightbox(item){
+  document.getElementById('lightbox-photo').innerHTML = `<img src="${item.imageUrl}" alt="">`;
+  document.getElementById('lightbox-tag').textContent = item.barcode;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') closeLightbox(); });
+
+async function loadProductsCache(){
+  try {
+    const snap = await get(ref(db, 'jewelryData/products'));
+    productsCache = snap.val() || {};
+  } catch (e) {
+    console.warn('[Categories] could not load product list', e);
+    productsCache = {};
+  }
+}
+
+async function rebuildItems(catalogueData){
+  // If any barcode currently in the catalogue is missing from our cached
+  // product list (e.g. it was imported after this page first loaded),
+  // refresh the cache once so its category isn't lost.
+  const barcodes = Object.keys(catalogueData).filter(bc => catalogueData[bc] && catalogueData[bc].available && catalogueData[bc].imageUrl);
+  const missing = barcodes.some(bc => !productsCache[bc]);
+  if (missing) await loadProductsCache();
+
+  ALL_ITEMS = barcodes
+    .map(bc => ({
+      barcode: bc,
+      imageUrl: catalogueData[bc].imageUrl,
+      uploadedAt: catalogueData[bc].uploadedAt || 0,
+      categoryKey: categoryKey(productsCache[bc] && productsCache[bc].itemName),
+    }))
+    .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
+
+  // If the category the customer currently has selected no longer has any
+  // items in it, fall back to "All" rather than showing an empty screen.
+  if (ACTIVE_CATEGORY !== 'All' && !ALL_ITEMS.some(i => i.categoryKey === ACTIVE_CATEGORY)) {
+    ACTIVE_CATEGORY = 'All';
+  }
+
+  document.getElementById('loading-msg').classList.add('hide');
+  document.getElementById('avail-text').textContent =
+    ALL_ITEMS.length + ' piece' + (ALL_ITEMS.length===1?'':'s') + ' on display right now';
+  renderCategorySlider();
+  renderGrid();
+}
+
+// Live listener — reflects sales as they happen, no refresh needed.
+loadProductsCache().then(() => {
+  onValue(ref(db, 'catalogue/items'), snap => {
+    rebuildItems(snap.val() || {});
+  }, err => {
+    document.getElementById('loading-msg').textContent = 'Could not load the collection right now.';
+    console.error(err);
+  });
+});
+</script>
+
+</body>
+</html>
