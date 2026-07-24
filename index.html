@@ -132,6 +132,12 @@
     font-family:'Work Sans',sans-serif;
   }
   .lb-whatsapp-btn:active{ transform:scale(.98); }
+  .lb-share-btn{
+    display:block; width:100%; text-align:center; border-radius:11px; padding:11px 0; margin-top:10px;
+    background:none; border:1.5px solid #E6DCCB; color:var(--ink); font-weight:700; font-size:13.5px;
+    font-family:'Work Sans',sans-serif; cursor:pointer;
+  }
+  .lb-share-btn:active{ transform:scale(.98); }
 
   /* ---------- Home view (banners) ---------- */
   .view-hidden{display:none !important;}
@@ -197,6 +203,7 @@
       <p class="lb-size-row" id="lightbox-size-row">Size: <b id="lightbox-size"></b></p>
       <p class="lb-price" id="lightbox-price"></p>
       <a class="lb-whatsapp-btn" id="lightbox-whatsapp" target="_blank" rel="noopener">💬 Order this piece on WhatsApp</a>
+      <button class="lb-share-btn" id="lightbox-share" type="button">🔗 Share This Piece</button>
     </div>
   </div>
 </div>
@@ -330,6 +337,7 @@ function openLightboxDom(item){
     item.price != null ? formatPrice(item.price) : 'Price on request';
 
   document.getElementById('lightbox-whatsapp').href = buildWhatsAppLink(item);
+  document.getElementById('lightbox').dataset.shareUrl = buildItemShareUrl(item);
 
   document.getElementById('lightbox').classList.add('open');
 }
@@ -371,6 +379,37 @@ function buildWhatsAppLink(item){
   ];
   return 'https://wa.me/' + SHOP_WHATSAPP_NUMBER + '?text=' + encodeURIComponent(lines.join('\n'));
 }
+
+// Deep link straight back to this exact item — the catalogKey is the stable
+// photo-group identifier, so this keeps working even if a linked tag sells
+// and a different tag in the same group becomes the one that's active.
+function buildItemShareUrl(item){
+  return location.origin + location.pathname + '?item=' + encodeURIComponent(item.catalogKey);
+}
+
+document.getElementById('lightbox-share').addEventListener('click', async () => {
+  const btn = document.getElementById('lightbox-share');
+  const url = document.getElementById('lightbox').dataset.shareUrl;
+  const item = currentLightboxItem;
+  const title = (item && item.displayName) ? item.displayName : 'Suhag Jewellers';
+
+  // On phones this opens the native share sheet (Instagram, WhatsApp,
+  // Messages, etc. all in one) — far better than a plain copied link.
+  // Desktop browsers mostly don't support it, so fall back to clipboard.
+  if (navigator.share) {
+    try { await navigator.share({ title, url }); }
+    catch (e) { /* user cancelled the share sheet — not an error */ }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    const original = btn.textContent;
+    btn.textContent = '✓ Link copied!';
+    setTimeout(() => { btn.textContent = original; }, 1800);
+  } catch (e) {
+    prompt('Copy this link:', url);
+  }
+});
 
 function closeLightboxDom(){ document.getElementById('lightbox').classList.remove('open'); }
 function closeLightbox(){
