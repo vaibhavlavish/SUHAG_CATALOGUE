@@ -137,24 +137,14 @@
   .view-hidden{display:none !important;}
   .home-banners{
     padding:18px 16px 40px; max-width:920px; margin:0 auto;
-    display:grid; grid-template-columns:1fr; gap:16px;
-  }
-  @media (min-width:700px){
-    .home-banners{grid-template-columns:repeat(2, 1fr); gap:18px;}
+    display:flex; flex-wrap:wrap; justify-content:center; gap:18px;
   }
   .home-banner{
     position:relative; border-radius:16px; overflow:hidden; aspect-ratio:4/3; cursor:pointer;
     background:#F0EAD9; opacity:0; transform:translateY(10px); animation:riseIn .5s ease forwards;
+    flex:1 1 320px; max-width:420px;
   }
   .home-banner img{width:100%; height:100%; object-fit:cover; display:block;}
-  .home-banner::after{
-    content:''; position:absolute; inset:0;
-    background:linear-gradient(0deg, rgba(20,8,10,.65) 0%, rgba(20,8,10,0) 45%);
-  }
-  .home-banner .banner-label{
-    position:absolute; left:16px; bottom:14px; right:16px; z-index:2;
-    color:var(--ivory); font-size:19px; font-weight:600; letter-spacing:.2px;
-  }
 
   @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} .home-banner{animation:none; opacity:1; transform:none;} }
 </style>
@@ -170,15 +160,15 @@
   </div>
 </header>
 
+<div class="toolbar">
+  <div class="category-slider" id="category-slider"></div>
+</div>
+
 <div id="home-view">
   <div class="home-banners" id="home-banners"></div>
 </div>
 
-<div id="browse-view">
-  <div class="toolbar">
-    <div class="category-slider" id="category-slider"></div>
-  </div>
-
+<div id="browse-view" class="view-hidden">
   <main>
     <div class="grid" id="grid"></div>
     <p class="state-msg hide" id="empty-msg">No pieces in this category right now — try another, or message us directly.</p>
@@ -284,6 +274,7 @@ function renderCategorySlider(){
   slider.querySelectorAll('.category-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       ACTIVE_CATEGORY = chip.dataset.key;
+      goToView('browse');
       renderCategorySlider();
       renderGrid();
     });
@@ -316,7 +307,10 @@ function renderGrid(){
 let currentLightboxItem = null;
 let currentImageIndex = 0;
 
-function openLightbox(item){
+// Pure DOM population — no history side effects. Used both for genuine user
+// taps (via openLightbox below) and when popstate reopens the popup after
+// the user navigates forward again.
+function openLightboxDom(item){
   currentLightboxItem = item;
   currentImageIndex = 0;
   renderLightboxImage();
@@ -338,6 +332,13 @@ function openLightbox(item){
   document.getElementById('lightbox-whatsapp').href = buildWhatsAppLink(item);
 
   document.getElementById('lightbox').classList.add('open');
+}
+
+// User tapped a photo — opens the popup AND records a history entry, so the
+// phone/browser back button closes the popup instead of leaving the site.
+function openLightbox(item){
+  openLightboxDom(item);
+  history.pushState({ screen: 'lightbox', category: ACTIVE_CATEGORY, barcode: item.barcode }, '', location.pathname);
 }
 
 function renderLightboxImage(){
@@ -371,7 +372,19 @@ function buildWhatsAppLink(item){
   return 'https://wa.me/' + SHOP_WHATSAPP_NUMBER + '?text=' + encodeURIComponent(lines.join('\n'));
 }
 
-function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
+function closeLightboxDom(){ document.getElementById('lightbox').classList.remove('open'); }
+function closeLightbox(){
+  // If we got here via a real lightbox history entry, popping it triggers
+  // popstate, which does the actual DOM close — keeping "tap X" and "tap
+  // back" perfectly equivalent. If there's no such entry (e.g. lightbox
+  // was reopened directly with no matching state, or history is otherwise
+  // out of sync), just close directly rather than risk leaving the site.
+  if (history.state && history.state.screen === 'lightbox') {
+    history.back();
+  } else {
+    closeLightboxDom();
+  }
+}
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
 document.getElementById('lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') closeLightbox(); });
 document.getElementById('lightbox-prev').addEventListener('click', e => { e.stopPropagation(); shiftLightboxImage(-1); });
@@ -445,7 +458,6 @@ function renderHomeBanners(){
   wrap.innerHTML = HOME_BANNERS.map((b, i) => `
     <div class="home-banner" style="animation-delay:${Math.min(i*0.05,0.4)}s" data-idx="${i}">
       <img src="${b.imageUrl}" alt="">
-      <span class="banner-label display">${b.categoryKey === 'all' ? 'Shop All' : categoryLabel(b.categoryKey)}</span>
     </div>
   `).join('');
 
@@ -454,14 +466,14 @@ function renderHomeBanners(){
       const banner = HOME_BANNERS[Number(el.dataset.idx)];
       if (!banner) return;
       ACTIVE_CATEGORY = (banner.categoryKey === 'all') ? 'All' : banner.categoryKey;
-      setView('browse');
+      goToView('browse');
       renderCategorySlider();
       renderGrid();
     });
   });
 }
 
-function setView(name){
+function applyView(name){
   // No banners set up yet? Don't show an empty home screen — just go
   // straight to the full catalogue so day-one use (before any banners
   // exist) never looks broken.
@@ -469,9 +481,39 @@ function setView(name){
   CURRENT_VIEW = name;
   document.getElementById('home-view').classList.toggle('view-hidden', name !== 'home');
   document.getElementById('browse-view').classList.toggle('view-hidden', name !== 'browse');
+  return name; // the (possibly coerced) view actually applied
 }
 
-document.getElementById('home-link').addEventListener('click', () => setView('home'));
+// User-initiated navigation (logo tap, category tap, banner tap) — applies
+// the view AND records a history entry, so phone/browser back steps
+// backward through the catalogue instead of leaving the site entirely.
+function goToView(name){
+  const applied = applyView(name);
+  history.pushState({ screen: applied, category: ACTIVE_CATEGORY }, '', location.pathname);
+}
+
+document.getElementById('home-link').addEventListener('click', () => goToView('home'));
+
+window.addEventListener('popstate', e => {
+  const state = e.state || { screen: 'home' };
+  if (state.screen === 'lightbox') {
+    ACTIVE_CATEGORY = state.category || 'All';
+    applyView('browse');
+    renderCategorySlider();
+    renderGrid();
+    const item = ALL_ITEMS.find(i => i.barcode === state.barcode);
+    if (item) openLightboxDom(item); else closeLightboxDom();
+  } else if (state.screen === 'browse') {
+    closeLightboxDom();
+    ACTIVE_CATEGORY = state.category || 'All';
+    applyView('browse');
+    renderCategorySlider();
+    renderGrid();
+  } else {
+    closeLightboxDom();
+    applyView('home');
+  }
+});
 
 // Live listeners — reflect sales, new arrivals, rate changes, and home
 // banner edits as they happen, no refresh needed.
@@ -482,18 +524,29 @@ onValue(ref(db, 'catalogue/items'), snap => {
   console.error(err);
 });
 
+let homeBannersFirstLoad = true;
 onValue(ref(db, 'catalogue/homeBanners'), snap => {
   const val = snap.val() || {};
   HOME_BANNERS = Object.keys(val)
     .map(id => ({ id, imageUrl: val[id].imageUrl, categoryKey: val[id].categoryKey || 'all', order: val[id].order || 0 }))
     .sort((a, b) => a.order - b.order);
   renderHomeBanners();
-  // If we're sitting on the home view and banners just went from 0 to some
-  // (or vice versa), make sure the view reflects that.
-  setView(CURRENT_VIEW);
+  if (homeBannersFirstLoad) {
+    // Real banner data has now actually arrived (this listener is async, so
+    // deciding the initial view any earlier would run against an empty list
+    // every time, even when banners exist). Decide the very first view here.
+    // This establishes the history baseline — replaceState, not pushState,
+    // since it's not a user navigation action; back from here should be
+    // free to leave the site, same as arriving at any normal home page.
+    homeBannersFirstLoad = false;
+    const applied = applyView('home');
+    history.replaceState({ screen: applied, category: ACTIVE_CATEGORY }, '', location.pathname);
+  } else if (CURRENT_VIEW === 'home' && !HOME_BANNERS.length) {
+    // Shop just removed their last banner while a customer was sitting on
+    // the home view — fall back gracefully instead of showing it empty.
+    applyView('browse');
+  }
 }, err => console.error(err));
-
-setView('home');
 </script>
 
 </body>
