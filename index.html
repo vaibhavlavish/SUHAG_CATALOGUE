@@ -29,12 +29,10 @@
     pointer-events:none;
   }
   .shop-row{display:flex; align-items:center; justify-content:space-between; gap:10px; position:relative;}
-  .shop-name{font-size:26px; font-weight:600; letter-spacing:.3px; margin:0;}
+  .shop-name{font-size:26px; font-weight:600; letter-spacing:.3px; margin:0; cursor:pointer; display:inline-block;}
+  .shop-name:active{opacity:.75;}
   .shop-name em{color:var(--gold); font-style:normal;}
   .tagline{margin:4px 0 0; font-size:13px; color:var(--gold-soft);}
-  .avail-row{position:relative; margin-top:16px; font-size:12.5px; color:var(--gold-soft); display:flex; align-items:center; gap:8px;}
-  .avail-dot{width:6px;height:6px;border-radius:50%;background:#7FD98A;box-shadow:0 0 0 3px rgba(127,217,138,.18); animation:pulse 2s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 
   .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:0; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
   .category-slider{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 0;}
@@ -46,7 +44,7 @@
   }
   .category-chip.active{background:var(--oxblood); border-color:var(--oxblood); color:var(--ivory);}
 
-  main{padding:16px 16px 100px; max-width:920px; margin:0 auto;}
+  main{padding:16px 16px 40px; max-width:920px; margin:0 auto;}
   .grid{display:grid; grid-template-columns: 1fr; gap:18px;}
   @media (min-width:700px){
     .grid{grid-template-columns: repeat(3, 1fr); gap:18px;}
@@ -67,7 +65,7 @@
   .state-msg.hide{display:none;}
 
   .trust-note{
-    max-width:920px; margin:34px auto 0; padding:16px 18px 100px; text-align:center;
+    max-width:920px; margin:34px auto 0; padding:16px 18px 40px; text-align:center;
     font-size:12.5px; color:var(--ink-soft); border-top:1px solid #EAE0CB;
   }
   .trust-note b{color:var(--ink);}
@@ -135,19 +133,30 @@
   }
   .lb-whatsapp-btn:active{ transform:scale(.98); }
 
-  .contact-bar{
-    position:fixed; bottom:0; left:0; right:0; z-index:15;
-    background:var(--oxblood); padding:12px 16px calc(12px + env(safe-area-inset-bottom));
-    box-shadow:0 -8px 20px -12px rgba(0,0,0,.4);
+  /* ---------- Home view (banners) ---------- */
+  .view-hidden{display:none !important;}
+  .home-banners{
+    padding:18px 16px 40px; max-width:920px; margin:0 auto;
+    display:grid; grid-template-columns:1fr; gap:16px;
   }
-  .contact-bar a{
-    width:100%; max-width:920px; margin:0 auto; display:block; text-align:center;
-    text-decoration:none; border-radius:11px; padding:13px 0;
-    background:var(--gold); color:var(--oxblood-deep);
-    font-family:'Work Sans',sans-serif; font-size:14.5px; font-weight:700;
+  @media (min-width:700px){
+    .home-banners{grid-template-columns:repeat(2, 1fr); gap:18px;}
+  }
+  .home-banner{
+    position:relative; border-radius:16px; overflow:hidden; aspect-ratio:4/3; cursor:pointer;
+    background:#F0EAD9; opacity:0; transform:translateY(10px); animation:riseIn .5s ease forwards;
+  }
+  .home-banner img{width:100%; height:100%; object-fit:cover; display:block;}
+  .home-banner::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(0deg, rgba(20,8,10,.65) 0%, rgba(20,8,10,0) 45%);
+  }
+  .home-banner .banner-label{
+    position:absolute; left:16px; bottom:14px; right:16px; z-index:2;
+    color:var(--ivory); font-size:19px; font-weight:600; letter-spacing:.2px;
   }
 
-  @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} .home-banner{animation:none; opacity:1; transform:none;} }
 </style>
 </head>
 <body>
@@ -155,28 +164,30 @@
 <header>
   <div class="shop-row">
     <div>
-      <p class="shop-name display"><em>Suhag</em> Jewellers</p>
+      <p class="shop-name display" id="home-link" role="button" tabindex="0"><em>Suhag</em> Jewellers</p>
       <p class="tagline">Browse the collection &middot; message us your price</p>
     </div>
   </div>
-  <div class="avail-row">
-    <span class="avail-dot"></span>
-    <span id="avail-text">Loading…</span>
-  </div>
 </header>
 
-<div class="toolbar">
-  <div class="category-slider" id="category-slider"></div>
+<div id="home-view">
+  <div class="home-banners" id="home-banners"></div>
 </div>
 
-<main>
-  <div class="grid" id="grid"></div>
-  <p class="state-msg hide" id="empty-msg">No pieces in this category right now — try another, or message us directly.</p>
-  <p class="state-msg" id="loading-msg">Loading the collection…</p>
-</main>
+<div id="browse-view">
+  <div class="toolbar">
+    <div class="category-slider" id="category-slider"></div>
+  </div>
 
-<div class="trust-note">
-  <b>Nothing here is leftover stock.</b> The moment a piece is sold in-store, it's removed from this page automatically — what you see is what's actually on the shelf today.
+  <main>
+    <div class="grid" id="grid"></div>
+    <p class="state-msg hide" id="empty-msg">No pieces in this category right now — try another, or message us directly.</p>
+    <p class="state-msg" id="loading-msg">Loading the collection…</p>
+  </main>
+
+  <div class="trust-note">
+    <b>Nothing here is leftover stock.</b> The moment a piece is sold in-store, it's removed from this page automatically — what you see is what's actually on the shelf today.
+  </div>
 </div>
 
 <div class="lightbox" id="lightbox">
@@ -198,11 +209,6 @@
       <a class="lb-whatsapp-btn" id="lightbox-whatsapp" target="_blank" rel="noopener">💬 Order this piece on WhatsApp</a>
     </div>
   </div>
-</div>
-
-<div class="contact-bar">
-  <!-- Fill in the shop's actual WhatsApp number below (with country code, no + or spaces) -->
-  <a id="contact-link" href="https://wa.me/919327647044" target="_blank" rel="noopener">💬 Order on WhatsApp</a>
 </div>
 
 <script type="module">
@@ -228,8 +234,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Single source of truth for the shop's WhatsApp number — used by the
+// per-item "Order this piece" button in the lightbox.
+const SHOP_WHATSAPP_NUMBER = '919327647044';
+
 let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKey, displayName, size, price }]
 let ACTIVE_CATEGORY = 'All';
+let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
+let CURRENT_VIEW = 'home';
 
 function categoryKey(name){
   return (name || '').toString().trim().toLowerCase();
@@ -348,8 +360,6 @@ function shiftLightboxImage(delta){
 }
 
 function buildWhatsAppLink(item){
-  const baseHref = document.getElementById('contact-link').getAttribute('href') || 'https://wa.me/919327647044';
-  const number = (baseHref.split('wa.me/')[1] || '919327647044').split('?')[0];
   const lines = [
     "Hi! I'm interested in this piece:",
     `Item: ${item.displayName || 'Jewellery item'}`,
@@ -358,7 +368,7 @@ function buildWhatsAppLink(item){
     '',
     'Is it available?'
   ];
-  return 'https://wa.me/' + number + '?text=' + encodeURIComponent(lines.join('\n'));
+  return 'https://wa.me/' + SHOP_WHATSAPP_NUMBER + '?text=' + encodeURIComponent(lines.join('\n'));
 }
 
 function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); }
@@ -420,21 +430,70 @@ function rebuildItems(catalogueData){
   }
 
   document.getElementById('loading-msg').classList.add('hide');
-  document.getElementById('avail-text').textContent =
-    ALL_ITEMS.length + ' piece' + (ALL_ITEMS.length===1?'':'s') + ' on display right now';
   renderCategorySlider();
   renderGrid();
 }
 
-// Live listener — reflects sales, new arrivals, and rate changes as they
-// happen (the POS app pushes updated displayName/displaySize/displayPrice
-// here whenever stock or rates change), no refresh needed.
+// ---------- Home view ----------
+// Attractive banner tiles set up in the Upload Terminal's "Home Page" tab.
+// Each banner opens the browse view pre-filtered to whichever category the
+// shop assigned it. If a banner's category no longer has any live items
+// (e.g. everything in it sold), browse view just shows the normal "no
+// pieces right now" empty state for that category rather than looking broken.
+function renderHomeBanners(){
+  const wrap = document.getElementById('home-banners');
+  wrap.innerHTML = HOME_BANNERS.map((b, i) => `
+    <div class="home-banner" style="animation-delay:${Math.min(i*0.05,0.4)}s" data-idx="${i}">
+      <img src="${b.imageUrl}" alt="">
+      <span class="banner-label display">${b.categoryKey === 'all' ? 'Shop All' : categoryLabel(b.categoryKey)}</span>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('.home-banner').forEach(el => {
+    el.addEventListener('click', () => {
+      const banner = HOME_BANNERS[Number(el.dataset.idx)];
+      if (!banner) return;
+      ACTIVE_CATEGORY = (banner.categoryKey === 'all') ? 'All' : banner.categoryKey;
+      setView('browse');
+      renderCategorySlider();
+      renderGrid();
+    });
+  });
+}
+
+function setView(name){
+  // No banners set up yet? Don't show an empty home screen — just go
+  // straight to the full catalogue so day-one use (before any banners
+  // exist) never looks broken.
+  if (name === 'home' && !HOME_BANNERS.length) name = 'browse';
+  CURRENT_VIEW = name;
+  document.getElementById('home-view').classList.toggle('view-hidden', name !== 'home');
+  document.getElementById('browse-view').classList.toggle('view-hidden', name !== 'browse');
+}
+
+document.getElementById('home-link').addEventListener('click', () => setView('home'));
+
+// Live listeners — reflect sales, new arrivals, rate changes, and home
+// banner edits as they happen, no refresh needed.
 onValue(ref(db, 'catalogue/items'), snap => {
   rebuildItems(snap.val() || {});
 }, err => {
   document.getElementById('loading-msg').textContent = 'Could not load the collection right now.';
   console.error(err);
 });
+
+onValue(ref(db, 'catalogue/homeBanners'), snap => {
+  const val = snap.val() || {};
+  HOME_BANNERS = Object.keys(val)
+    .map(id => ({ id, imageUrl: val[id].imageUrl, categoryKey: val[id].categoryKey || 'all', order: val[id].order || 0 }))
+    .sort((a, b) => a.order - b.order);
+  renderHomeBanners();
+  // If we're sitting on the home view and banners just went from 0 to some
+  // (or vice versa), make sure the view reflects that.
+  setView(CURRENT_VIEW);
+}, err => console.error(err));
+
+setView('home');
 </script>
 
 </body>
