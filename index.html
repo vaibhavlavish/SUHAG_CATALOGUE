@@ -281,7 +281,7 @@
 </header>
 
 <div class="cod-marquee" id="cod-marquee">
-  <div class="cod-marquee-inner">
+  <div class="cod-marquee-inner" id="cod-marquee-inner">
     <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
     <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
     <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
@@ -1120,6 +1120,20 @@ onValue(ref(db, 'catalogue/hiddenGoogleReviews'), snap => {
   HIDDEN_REVIEW_TIMES = new Set(Object.keys(val).filter(k => val[k]));
   hiddenListLoaded = true;
   if (LAST_FETCHED_PLACE) renderGoogleReviews(LAST_FETCHED_PLACE);
+}, err => console.error(err));
+
+// Scrolling banner text (e.g. "No COD" today, a holiday closure notice
+// tomorrow) — editable from the Upload Terminal's Home Page tab. Falls back
+// to the default COD notice already baked into the page if nothing's set,
+// and hides the whole banner if the shop deliberately clears it to blank.
+onValue(ref(db, 'catalogue/marqueeText'), snap => {
+  const text = snap.val();
+  const bar = document.getElementById('cod-marquee');
+  const inner = document.getElementById('cod-marquee-inner');
+  if (text === null || text === undefined) return; // never set — keep the default markup as-is
+  if (text === '') { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  inner.innerHTML = Array(6).fill(`<span class="cod-marquee-item">${escapeHtml(text)}</span>`).join('');
 }, err => console.error(err));
 
 function renderStars(n){
