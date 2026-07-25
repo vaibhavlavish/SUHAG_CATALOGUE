@@ -452,9 +452,9 @@ function collectImages(node){
   Object.keys(images).forEach(id => {
     const img = images[id];
     if (!img || !img.imageUrl || img.hiddenAt) return;
-    entries.push({ url: img.imageUrl, t: img.uploadedAt || 0 });
+    entries.push({ url: img.imageUrl, thumb: img.thumbUrl || img.imageUrl, t: img.uploadedAt || 0 });
   });
-  if (node && node.imageUrl) entries.push({ url: node.imageUrl, t: node.uploadedAt || 0 });
+  if (node && node.imageUrl) entries.push({ url: node.imageUrl, thumb: node.imageUrl, t: node.uploadedAt || 0 });
   entries.sort((a, b) => a.t - b.t);
   return entries;
 }
@@ -486,7 +486,7 @@ function renderGrid(){
   grid.innerHTML = items.map((item, i) => `
     <div class="card" style="animation-delay:${Math.min(i*0.03,0.6)}s" data-barcode="${item.barcode}">
       <div class="card-photo">
-        <img src="${item.images[0]}" alt="" loading="lazy">
+        <img src="${item.thumbs[0]}" alt="" loading="lazy">
         <span class="tag">${item.barcode}</span>
       </div>
     </div>
@@ -679,6 +679,7 @@ function rebuildItems(catalogueData){
         barcode: node.activeBarcode || bc,
         catalogKey: bc, // stable identifier for deep links — doesn't change even if a linked group's active tag does
         images: imgEntries.map(e => e.url),
+        thumbs: imgEntries.map(e => e.thumb), // small versions for the grid/cart — falls back to full image if no thumbnail exists
         uploadedAt: node.uploadedAt || newestImageAt || 0,
         categoryKey: categoryKey(displayName),
         displayName,
@@ -790,7 +791,7 @@ function cartItemFromCatalogueItem(item){
     barcode: item.barcode,
     displayName: displayNameForItem(item),
     price: item.price,
-    image: item.images && item.images[0] || null,
+    image: item.thumbs && item.thumbs[0] || null,
   };
 }
 
@@ -809,7 +810,7 @@ function addToCart(item){
     barcode: item.barcode,
     displayName: item.displayName,
     price: item.price,
-    image: item.images && item.images[0] || null,
+    image: item.thumbs && item.thumbs[0] || null,
   });
   saveCart();
   renderCartFab();
