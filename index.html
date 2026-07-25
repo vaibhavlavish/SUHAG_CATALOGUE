@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suhag Jewellers — Catalogue</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -711,7 +712,7 @@ function renderHomeBanners(){
   const wrap = document.getElementById('home-banners');
   wrap.innerHTML = HOME_BANNERS.map((b, i) => `
     <div class="home-banner" style="animation-delay:${Math.min(i*0.05,0.4)}s" data-idx="${i}">
-      <img src="${b.imageUrl}" alt="">
+      <img src="${b.imageUrl}" alt="" loading="lazy">
     </div>
   `).join('');
 
