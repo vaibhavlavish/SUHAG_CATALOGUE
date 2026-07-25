@@ -397,7 +397,7 @@ const SHOP_WHATSAPP_NUMBER = '919327647044';
 
 let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKey, displayName, size, price }]
 let ACTIVE_CATEGORY = 'All';
-let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: description text }, keyed uppercase
+let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight, purity} }, keyed uppercase
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let CURRENT_VIEW = 'home';
 
@@ -523,21 +523,33 @@ function renderLightboxImage(){
     : '';
 }
 
+// Older saved tag descriptions are a plain string; newer ones carry their
+// own weight/purity overrides too. This normalizes either into one shape.
+function normalizeTagDesc(raw){
+  if (!raw) return { text: '', showWeight: false, purity: '' };
+  if (typeof raw === 'string') return { text: raw, showWeight: false, purity: '' };
+  return { text: raw.text || '', showWeight: !!raw.showWeight, purity: raw.purity || '' };
+}
+
 // Combines whatever the shop has configured for this piece — purity, weight
-// (only if the shop's chosen to show it), a note specific to this exact tag,
-// and a general note for the whole linked group — skipping any that are
-// empty rather than leaving blank gaps.
+// (shown if either the group or this specific tag has chosen to show it), a
+// note specific to this exact tag, and a general note for the whole linked
+// group — skipping any that are empty rather than leaving blank gaps. A
+// tag's own purity, if set, takes over from the group's.
 function renderLightboxDescription(item){
   const el = document.getElementById('lightbox-description');
-  const metaBits = [];
-  if (item.purity) metaBits.push(`Purity: <b>${escapeHtml(item.purity)}</b>`);
-  if (item.showWeight && item.weight != null) metaBits.push(`Weight: <b>${item.weight}g</b>`);
+  const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()]);
 
-  const tagDesc = (TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()] || '').trim();
+  const purity = tagDesc.purity || item.purity;
+  const showWeight = item.showWeight || tagDesc.showWeight;
+
+  const metaBits = [];
+  if (purity) metaBits.push(`Purity: <b>${escapeHtml(purity)}</b>`);
+  if (showWeight && item.weight != null) metaBits.push(`Weight: <b>${item.weight}g</b>`);
 
   let html = '';
   if (metaBits.length) html += `<p class="meta-line">${metaBits.join(' &middot; ')}</p>`;
-  if (tagDesc) html += `<p class="desc-text">${escapeHtml(tagDesc)}</p>`;
+  if (tagDesc.text) html += `<p class="desc-text">${escapeHtml(tagDesc.text)}</p>`;
   if (item.groupRemarks) html += `<p class="desc-text">${escapeHtml(item.groupRemarks)}</p>`;
   el.innerHTML = html;
 }
