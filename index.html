@@ -34,7 +34,7 @@
   .shop-name em{color:var(--gold); font-style:normal;}
   .tagline{margin:4px 0 0; font-size:13px; color:var(--gold-soft);}
 
-  .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:0; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
+  .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:28px; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
   .category-slider{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 0;}
   .category-slider::-webkit-scrollbar{display:none;}
   .category-chip{
@@ -249,6 +249,24 @@
   .contact-line a{ color:var(--oxblood); text-decoration:none; font-weight:600; }
   .policies-line{ margin-top:14px; }
   .policies-line a{ font-size:11.5px; color:var(--ink-soft); text-decoration:underline; }
+
+  .cod-marquee{
+    background:var(--gold); overflow:hidden; white-space:nowrap;
+    position:sticky; top:0; z-index:6; height:28px;
+  }
+  .cod-marquee-inner{
+    display:flex; width:max-content;
+    animation:codScroll 22s linear infinite;
+  }
+  .cod-marquee-item{
+    display:inline-block; flex:0 0 auto; padding-right:48px;
+    font-family:'Work Sans',sans-serif; font-weight:700; font-size:13px;
+    letter-spacing:.2px; color:var(--oxblood-deep); line-height:28px; white-space:nowrap;
+  }
+  @keyframes codScroll{
+    0%{ transform:translateX(0); }
+    100%{ transform:translateX(-50%); }
+  }
 </style>
 </head>
 <body>
@@ -261,6 +279,17 @@
     </div>
   </div>
 </header>
+
+<div class="cod-marquee" id="cod-marquee">
+  <div class="cod-marquee-inner">
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+    <span class="cod-marquee-item">❌ No COD / PARTIAL COD &nbsp;&nbsp;✅ Only prepaid orders</span>
+  </div>
+</div>
 
 <div class="toolbar">
   <div class="category-slider" id="category-slider"></div>
