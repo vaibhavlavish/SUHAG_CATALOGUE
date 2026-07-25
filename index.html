@@ -455,6 +455,7 @@ let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKe
 let ACTIVE_CATEGORY = 'All';
 let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight, purity} }, keyed uppercase
 let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
+let CATEGORY_SETTINGS = {}; // { categoryKey: {purity, showWeight, groupRemarks, sizeChartId, nameOverride} } — defaults every item in that category inherits unless it has its own override
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let CURRENT_VIEW = 'home';
 
@@ -711,6 +712,15 @@ function rebuildItems(catalogueData){
       const imgEntries = collectImages(node);
       const displayName = node.displayName || '';
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
+      const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
+
+      // A specific barcode's own saved value always wins over the category
+      // default — the category default is just what applies when nothing
+      // more specific has been set. For showWeight specifically, "explicitly
+      // set to false" has to count as a real override too, not just "unset",
+      // so this checks the actual type rather than plain truthiness.
+      const showWeight = typeof node.showWeight === 'boolean' ? node.showWeight
+        : (typeof catDefaults.showWeight === 'boolean' ? catDefaults.showWeight : false);
 
       return {
         barcode: node.activeBarcode || bc,
@@ -723,11 +733,11 @@ function rebuildItems(catalogueData){
         size: node.displaySize || '',
         price: (typeof node.displayPrice === 'number') ? node.displayPrice : null,
         weight: (typeof node.displayWeight === 'number') ? node.displayWeight : null,
-        showWeight: !!node.showWeight,
-        purity: node.purity || '',
-        groupRemarks: node.groupRemarks || '',
-        groupNameOverride: node.nameOverride || '',
-        sizeChartId: node.sizeChartId || '',
+        showWeight,
+        purity: node.purity || catDefaults.purity || '',
+        groupRemarks: node.groupRemarks || catDefaults.groupRemarks || '',
+        groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
+        sizeChartId: node.sizeChartId || catDefaults.sizeChartId || '',
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
@@ -1066,9 +1076,11 @@ window.addEventListener('popstate', e => {
 let itemsFirstLoadDone = false;
 let bannersFirstLoadDone = false;
 let initialViewDecided = false;
+let latestCatalogueData = {};
 
 onValue(ref(db, 'catalogue/items'), snap => {
-  rebuildItems(snap.val() || {});
+  latestCatalogueData = snap.val() || {};
+  rebuildItems(latestCatalogueData);
   itemsFirstLoadDone = true;
   maybeDecideInitialView();
 }, err => {
@@ -1077,6 +1089,15 @@ onValue(ref(db, 'catalogue/items'), snap => {
   itemsFirstLoadDone = true;
   maybeDecideInitialView();
 });
+
+// Category-level defaults (Purity/Weight/Remarks/Size Chart/Name) set from
+// the Upload Terminal — these apply to every item in that category
+// automatically, including ones added later, unless a specific barcode has
+// its own override saved (which always wins over the category default).
+onValue(ref(db, 'catalogue/categorySettings'), snap => {
+  CATEGORY_SETTINGS = snap.val() || {};
+  if (Object.keys(latestCatalogueData).length) rebuildItems(latestCatalogueData);
+}, err => console.error(err));
 
 onValue(ref(db, 'catalogue/homeBanners'), snap => {
   const val = snap.val() || {};
