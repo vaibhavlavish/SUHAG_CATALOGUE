@@ -246,6 +246,7 @@
     border-top:1px solid #EAE0CB;
   }
   .contact-name{ font-size:19px; font-weight:600; color:var(--ink); margin:0 0 8px; }
+  .since-line{ font-size:11.5px; color:var(--gold); font-weight:700; letter-spacing:.4px; margin:0 0 12px; text-transform:uppercase; }
   .contact-line{ font-size:13px; color:var(--ink-soft); margin:0 0 6px; line-height:1.5; }
   .contact-line a{ color:var(--oxblood); text-decoration:none; font-weight:600; }
   .policies-line{ margin-top:14px; }
@@ -392,8 +393,9 @@
 
 <div class="contact-footer">
   <p class="contact-name display">Suhag Jewellers</p>
+  <p class="since-line">✦ In-Store Since 2000 ✦</p>
   <p class="contact-line">24, High School Shopping Centre, Near Jalaram Khaman House, Chikhli, Navsari, Gujarat - 396521</p>
-  <p class="contact-line"><a href="tel:+919327647044">Call us: +91 93276 47044</a></p>
+  <p class="contact-line"><a href="tel:+919327647044">Call us: +91 93276 47044</a> &nbsp;·&nbsp; <a href="#" id="directions-link" target="_blank" rel="noopener">Get Directions</a></p>
   <p class="policies-line"><a href="./policies.html">Privacy · Terms · Shipping · Refund Policy</a></p>
 </div>
 
@@ -1114,6 +1116,10 @@ const GOOGLE_PLACE_ID = 'ChIJoSJ1hJnt4DsRPnyWFI1nR4A';
 if (!GOOGLE_PLACE_ID.startsWith('YOUR_')) {
   document.getElementById('write-review-link').href =
     'https://search.google.com/local/writereview?placeid=' + GOOGLE_PLACE_ID;
+  // Official Google Maps link for a specific place — opens directions
+  // straight to this exact listing, same Place ID as everywhere else here.
+  document.getElementById('directions-link').href =
+    'https://www.google.com/maps/place/?q=place_id:' + GOOGLE_PLACE_ID;
 }
 
 // Google gives no way to pick which of its reviews show — this hidden-list
