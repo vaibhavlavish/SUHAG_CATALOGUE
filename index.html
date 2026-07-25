@@ -225,6 +225,22 @@
   }
   .home-banner img{width:100%; height:100%; object-fit:cover; display:block;}
 
+  .trending-section{ max-width:920px; margin:0 auto; padding:6px 16px 30px; }
+  .trending-heading{ font-size:22px; font-weight:600; margin:0 0 14px; text-align:center; }
+  .trending-scroll{
+    display:flex; gap:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity;
+    padding:2px 2px 6px;
+  }
+  .trending-card{
+    flex:0 0 auto; width:150px; scroll-snap-align:start; background:#fff; border:1px solid #EEE3CC;
+    border-radius:12px; overflow:hidden; cursor:pointer;
+  }
+  .trending-card .photo{ width:100%; aspect-ratio:1/1; background:#F0EAD9; }
+  .trending-card .photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .trending-card .info{ padding:9px 10px 11px; }
+  .trending-card .name{ font-size:12.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 3px; }
+  .trending-card .price{ font-size:13px; font-weight:700; color:#2E7D46; margin:0; }
+
   @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} .home-banner{animation:none; opacity:1; transform:none;} }
 
   /* ---------- Google Reviews (read-only, pulled live from your Business Profile) ---------- */
@@ -315,6 +331,10 @@
 
 <div id="home-view">
   <div class="home-banners" id="home-banners"></div>
+  <div class="trending-section" id="trending-section" style="display:none;">
+    <p class="trending-heading display">Currently Popular</p>
+    <div class="trending-scroll" id="trending-scroll"></div>
+  </div>
 </div>
 
 <div id="browse-view" class="view-hidden">
@@ -457,6 +477,7 @@ let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight,
 let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
 let CATEGORY_SETTINGS = {}; // { categoryKey: {purity, showWeight, groupRemarks, sizeChartId, nameOverride} } — defaults every item in that category inherits unless it has its own override
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
+let TRENDING_TAGS = []; // ordered array of tag/barcode strings, set from the Upload Terminal
 let CURRENT_VIEW = 'home';
 
 function categoryKey(name){
@@ -751,6 +772,7 @@ function rebuildItems(catalogueData){
   document.getElementById('loading-msg').classList.add('hide');
   renderCategorySlider();
   renderGrid();
+  renderTrending();
 }
 
 // ---------- Home view ----------
@@ -790,6 +812,54 @@ function renderHomeBanners(){
       goToView('browse');
       renderCategorySlider();
       renderGrid();
+    });
+  });
+}
+
+// Resolves each tag the shop entered in "Currently Trending" to a live
+// catalogue item — checking the currently-active/quoted tag first (what a
+// customer would actually see), then falling back to the group's own key
+// (in case the shop typed that instead). Anything sold out or removed just
+// quietly drops off this strip rather than showing a broken card; if
+// nothing resolves at all, the whole section hides itself.
+function renderTrending(){
+  const section = document.getElementById('trending-section');
+  const wrap = document.getElementById('trending-scroll');
+
+  const resolved = TRENDING_TAGS
+    .map(tag => {
+      const upper = String(tag).toUpperCase();
+      return ALL_ITEMS.find(i => i.barcode.toUpperCase() === upper) ||
+             ALL_ITEMS.find(i => i.catalogKey.toUpperCase() === upper);
+    })
+    .filter(Boolean);
+
+  if (!resolved.length) {
+    section.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  wrap.innerHTML = resolved.map((item, i) => `
+    <div class="trending-card" data-idx="${i}">
+      <div class="photo"><img src="${item.thumbs[0]}" alt="" loading="lazy"></div>
+      <div class="info">
+        <p class="name">${escapeHtml(item.displayName || 'Jewellery item')}</p>
+        <p class="price">${item.price != null ? formatPrice(item.price) : 'Price on request'}</p>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('.trending-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const item = resolved[Number(el.dataset.idx)];
+      if (!item) return;
+      ACTIVE_CATEGORY = item.categoryKey;
+      goToView('browse');
+      renderCategorySlider();
+      renderGrid();
+      openLightbox(item);
     });
   });
 }
@@ -1129,6 +1199,11 @@ onValue(ref(db, 'catalogue/tagDescriptions'), snap => {
 onValue(ref(db, 'catalogue/sizeCharts'), snap => {
   SIZE_CHARTS = snap.val() || {};
   if (currentLightboxItem) renderLightboxDescription(currentLightboxItem);
+}, err => console.error(err));
+
+onValue(ref(db, 'catalogue/trendingTags'), snap => {
+  TRENDING_TAGS = snap.val() || [];
+  renderTrending();
 }, err => console.error(err));
 
 // Deciding the initial screen needs BOTH catalogue items (to resolve a
