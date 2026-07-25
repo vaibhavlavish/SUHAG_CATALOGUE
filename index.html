@@ -513,7 +513,6 @@ function openLightboxDom(item){
   currentImageIndex = 0;
   renderLightboxImage();
 
-  document.getElementById('lightbox-item-name').textContent = item.displayName || 'Jewellery item';
   document.getElementById('lightbox-tag').textContent = item.barcode;
 
   const sizeRow = document.getElementById('lightbox-size-row');
@@ -556,9 +555,9 @@ function renderLightboxImage(){
 // Older saved tag descriptions are a plain string; newer ones carry their
 // own weight/purity overrides too. This normalizes either into one shape.
 function normalizeTagDesc(raw){
-  if (!raw) return { text: '', showWeight: false, purity: '' };
-  if (typeof raw === 'string') return { text: raw, showWeight: false, purity: '' };
-  return { text: raw.text || '', showWeight: !!raw.showWeight, purity: raw.purity || '' };
+  if (!raw) return { text: '', showWeight: false, purity: '', nameOverride: '' };
+  if (typeof raw === 'string') return { text: raw, showWeight: false, purity: '', nameOverride: '' };
+  return { text: raw.text || '', showWeight: !!raw.showWeight, purity: raw.purity || '', nameOverride: raw.nameOverride || '' };
 }
 
 // Combines whatever the shop has configured for this piece — purity, weight
@@ -569,6 +568,8 @@ function normalizeTagDesc(raw){
 function renderLightboxDescription(item){
   const el = document.getElementById('lightbox-description');
   const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()]);
+
+  document.getElementById('lightbox-item-name').textContent = tagDesc.nameOverride || item.displayName || 'Jewellery item';
 
   const purity = tagDesc.purity || item.purity;
   const showWeight = item.showWeight || tagDesc.showWeight;
@@ -778,11 +779,16 @@ try { CART = JSON.parse(localStorage.getItem('suhagCart') || '[]'); } catch (e) 
 let CHECKOUT_ITEMS = [];
 let CHECKOUT_SOURCE = 'cart'; // 'cart' | 'buynow'
 
+function displayNameForItem(item){
+  const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()]);
+  return tagDesc.nameOverride || item.displayName;
+}
+
 function cartItemFromCatalogueItem(item){
   return {
     catalogKey: item.catalogKey,
     barcode: item.barcode,
-    displayName: item.displayName,
+    displayName: displayNameForItem(item),
     price: item.price,
     image: item.images && item.images[0] || null,
   };
