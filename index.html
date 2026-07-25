@@ -596,7 +596,7 @@ function renderLightboxDescription(item){
   const el = document.getElementById('lightbox-description');
   const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()]);
 
-  document.getElementById('lightbox-item-name').textContent = tagDesc.nameOverride || item.displayName || 'Jewellery item';
+  document.getElementById('lightbox-item-name').textContent = tagDesc.nameOverride || item.groupNameOverride || item.displayName || 'Jewellery item';
 
   const purity = tagDesc.purity || item.purity;
   const showWeight = item.showWeight || tagDesc.showWeight;
@@ -726,6 +726,7 @@ function rebuildItems(catalogueData){
         showWeight: !!node.showWeight,
         purity: node.purity || '',
         groupRemarks: node.groupRemarks || '',
+        groupNameOverride: node.nameOverride || '',
         sizeChartId: node.sizeChartId || '',
       };
     })
@@ -820,7 +821,7 @@ let CHECKOUT_SOURCE = 'cart'; // 'cart' | 'buynow'
 
 function displayNameForItem(item){
   const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[String(item.barcode).toUpperCase()]);
-  return tagDesc.nameOverride || item.displayName;
+  return tagDesc.nameOverride || item.groupNameOverride || item.displayName;
 }
 
 function cartItemFromCatalogueItem(item){
