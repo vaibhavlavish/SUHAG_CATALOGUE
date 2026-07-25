@@ -77,6 +77,22 @@
     position:fixed; top:18px; right:18px; width:38px; height:38px; border-radius:50%;
     border:none; background:rgba(255,255,255,.12); color:#fff; font-size:18px; cursor:pointer; z-index:2;
   }
+  .modal-close-btn{
+    position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%;
+    border:1px solid #E6DCCB; background:#F7F2E7; color:var(--ink); font-size:16px; cursor:pointer; z-index:2;
+  }
+  .modal-close-btn:active{ background:#EFE6D0; }
+
+  .size-chart-btn{
+    display:inline-block; margin-left:6px; border:1px solid #E6DCCB; background:#F7F2E7; color:var(--ink);
+    border-radius:7px; padding:3px 9px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:'Work Sans',sans-serif;
+  }
+  .size-chart-btn:active{ background:#EFE6D0; }
+  .sizechart-modal-content{
+    position:relative; background:#fff; border-radius:16px; padding:24px 20px; width:min(92vw, 480px); margin:auto; text-align:center;
+  }
+  .sizechart-modal-content img{ width:100%; border-radius:10px; margin-top:8px; }
+  .sizechart-modal-title{ font-size:19px; font-weight:600; margin:0; padding-right:26px; }
 
   .lightbox-content{
     width:min(92vw, 900px); margin:auto;
@@ -315,7 +331,7 @@
 
 <div class="cart-drawer" id="cart-drawer">
   <div class="cart-drawer-content">
-    <button class="lightbox-close" id="cart-close" style="position:absolute;">✕</button>
+    <button class="modal-close-btn" id="cart-close">✕</button>
     <p class="cart-title display">Your Cart</p>
     <div class="cart-items" id="cart-items"></div>
     <div class="cart-total-row" id="cart-total-row"></div>
@@ -325,7 +341,7 @@
 
 <div class="cart-drawer" id="checkout-modal">
   <div class="cart-drawer-content">
-    <button class="lightbox-close" id="checkout-close" style="position:absolute;">✕</button>
+    <button class="modal-close-btn" id="checkout-close">✕</button>
     <p class="cart-title display">Delivery Details</p>
     <p class="checkout-note">We'll send your order and address to us on WhatsApp to confirm payment and delivery — nothing is charged here.</p>
 
@@ -357,6 +373,14 @@
   </div>
 </div>
 
+<div class="cart-drawer" id="sizechart-modal">
+  <div class="sizechart-modal-content">
+    <button class="modal-close-btn" id="sizechart-modal-close">✕</button>
+    <p class="sizechart-modal-title display" id="sizechart-modal-title"></p>
+    <img id="sizechart-modal-img" src="" alt="Size chart">
+  </div>
+</div>
+
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" id="lightbox-close">✕</button>
   <div class="lightbox-content" id="lightbox-content">
@@ -371,7 +395,7 @@
     </div>
     <div class="lightbox-details">
       <p class="lb-name display" id="lightbox-item-name"></p>
-      <p class="lb-size-row" id="lightbox-size-row">Size: <b id="lightbox-size"></b></p>
+      <p class="lb-size-row" id="lightbox-size-row">Size: <b id="lightbox-size"></b> <button class="size-chart-btn" id="lightbox-sizechart-btn" type="button" style="display:none;">📏 Size Chart</button></p>
       <div class="lb-description" id="lightbox-description"></div>
       <p class="lb-price" id="lightbox-price"></p>
       <button class="lb-buynow-btn" id="lightbox-buynow-btn" type="button">Buy Now</button>
@@ -430,6 +454,7 @@ const SHOP_WHATSAPP_NUMBER = '919327647044';
 let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKey, displayName, size, price }]
 let ACTIVE_CATEGORY = 'All';
 let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight, purity} }, keyed uppercase
+let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let CURRENT_VIEW = 'home';
 
@@ -585,6 +610,16 @@ function renderLightboxDescription(item){
   if (tagDesc.text) html += `<p class="desc-text">${escapeHtml(tagDesc.text)}</p>`;
   if (item.groupRemarks) html += `<p class="desc-text">${escapeHtml(item.groupRemarks)}</p>`;
   el.innerHTML = html;
+
+  const chartBtn = document.getElementById('lightbox-sizechart-btn');
+  const chart = item.sizeChartId ? SIZE_CHARTS[item.sizeChartId] : null;
+  if (chart) {
+    chartBtn.style.display = 'inline-block';
+    chartBtn.onclick = () => openSizeChart(chart);
+  } else {
+    chartBtn.style.display = 'none';
+    chartBtn.onclick = null;
+  }
 }
 
 function shiftLightboxImage(delta){
@@ -691,6 +726,7 @@ function rebuildItems(catalogueData){
         showWeight: !!node.showWeight,
         purity: node.purity || '',
         groupRemarks: node.groupRemarks || '',
+        sizeChartId: node.sizeChartId || '',
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
@@ -885,6 +921,21 @@ function closeCartDrawerDom(){ document.getElementById('cart-drawer').classList.
 function openCheckoutModalDom(){ document.getElementById('checkout-modal').classList.add('open'); }
 function closeCheckoutModalDom(){ document.getElementById('checkout-modal').classList.remove('open'); }
 
+let currentSizeChart = null;
+function openSizeChartDom(chart){
+  currentSizeChart = chart;
+  document.getElementById('sizechart-modal-title').textContent = chart.name || 'Size Chart';
+  document.getElementById('sizechart-modal-img').src = chart.imageUrl;
+  document.getElementById('sizechart-modal').classList.add('open');
+}
+function closeSizeChartDom(){ document.getElementById('sizechart-modal').classList.remove('open'); }
+function openSizeChart(chart){
+  openSizeChartDom(chart);
+  history.pushState({ screen: 'sizechart', category: ACTIVE_CATEGORY }, '', location.pathname);
+}
+document.getElementById('sizechart-modal-close').addEventListener('click', () => closeOverlay('sizechart', closeSizeChartDom));
+document.getElementById('sizechart-modal').addEventListener('click', e => { if (e.target.id === 'sizechart-modal') closeOverlay('sizechart', closeSizeChartDom); });
+
 function goToScreen(name){
   history.pushState({ screen: name, category: ACTIVE_CATEGORY }, '', location.pathname);
   if (name === 'cart') openCartDrawerDom();
@@ -983,8 +1034,13 @@ window.addEventListener('popstate', e => {
     openCheckoutModalDom();
     return;
   }
+  if (state.screen === 'sizechart') {
+    if (currentSizeChart) openSizeChartDom(currentSizeChart); else closeSizeChartDom();
+    return;
+  }
   closeCartDrawerDom();
   closeCheckoutModalDom();
+  closeSizeChartDom();
   if (state.screen === 'lightbox') {
     ACTIVE_CATEGORY = state.category || 'All';
     applyView('browse');
@@ -1045,6 +1101,11 @@ onValue(ref(db, 'catalogue/tagDescriptions'), snap => {
   TAG_DESCRIPTIONS = snap.val() || {};
   // If someone's looking at an item right now and the shop just edited its
   // tag description, reflect that immediately rather than needing a reload.
+  if (currentLightboxItem) renderLightboxDescription(currentLightboxItem);
+}, err => console.error(err));
+
+onValue(ref(db, 'catalogue/sizeCharts'), snap => {
+  SIZE_CHARTS = snap.val() || {};
   if (currentLightboxItem) renderLightboxDescription(currentLightboxItem);
 }, err => console.error(err));
 
