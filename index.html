@@ -108,8 +108,9 @@
   .lightbox-photo{
     width:100%; aspect-ratio:1/1; border-radius:10px;
     background:#F0EAD9; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    touch-action:none;
   }
-  .lightbox-photo img{width:100%; height:100%; object-fit:contain; display:block;}
+  .lightbox-photo img{width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; user-select:none; -webkit-user-drag:none; touch-action:none;}
   .lightbox-tag{
     position:absolute; top:8px; left:8px; z-index:2;
     color:#fff; background:rgba(0,0,0,.45); font-size:11px; letter-spacing:.4px;
@@ -592,7 +593,30 @@ function openLightbox(item){
 function renderLightboxImage(){
   const item = currentLightboxItem;
   if (!item) return;
-  document.getElementById('lightbox-photo').innerHTML = `<img src="${item.images[currentImageIndex]}" alt="">`;
+  const photoEl = document.getElementById('lightbox-photo');
+  const url = item.images[currentImageIndex];
+
+  // The box was previously forced to a fixed square, which left ugly empty
+  // bars on either side of any photo that isn't itself square (most jewelry
+  // shots on a flat surface are wider than tall). Instead, once the photo's
+  // real dimensions are known, the box reshapes to match it — so the photo
+  // always fills its container with nothing cropped and no dead space.
+  // Clamped to a sane range so one oddly-shaped photo can't make the layout
+  // look broken.
+  photoEl.innerHTML = `<img src="${url}" alt="">`;
+  const img = photoEl.querySelector('img');
+  const applyPhotoRatio = () => {
+    if (img.naturalWidth && img.naturalHeight) {
+      const ratio = Math.min(1.6, Math.max(0.65, img.naturalWidth / img.naturalHeight));
+      photoEl.style.aspectRatio = ratio.toFixed(3);
+    }
+  };
+  // A cached image can already be "complete" the instant its src is set,
+  // in which case the load event has already fired and would never reach a
+  // handler attached after the fact — so this checks both possibilities.
+  if (img.complete) applyPhotoRatio();
+  else img.onload = applyPhotoRatio;
+  resetLightboxZoom();
 
   const hasMultiple = item.images.length > 1;
   document.getElementById('lightbox-nav').style.display = hasMultiple ? 'flex' : 'none';
@@ -706,17 +730,111 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Escape') closeLightbox();
 });
 
-// Basic swipe support for the photo on touch devices.
-(function enableSwipe(){
+// ---------- Pinch-to-zoom, pan, double-tap zoom, and swipe-to-navigate ----------
+// All of these share one photo element, so they need to cooperate: swiping
+// to the next/previous photo only makes sense when not currently zoomed in
+// (otherwise a swipe-to-pan gesture would accidentally change the photo).
+let lbZoomScale = 1, lbZoomX = 0, lbZoomY = 0;
+const MAX_LB_ZOOM = 4;
+
+function clampLbZoom(scale){ return Math.min(MAX_LB_ZOOM, Math.max(1, scale)); }
+
+function applyLightboxZoom(){
+  const img = document.querySelector('#lightbox-photo img');
+  if (!img) return;
+  img.style.transform = `translate(${lbZoomX}px, ${lbZoomY}px) scale(${lbZoomScale})`;
+}
+
+function resetLightboxZoom(){
+  lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0;
+  const img = document.querySelector('#lightbox-photo img');
+  if (img) img.style.transition = 'none';
+  applyLightboxZoom();
+}
+
+(function enableLightboxZoomAndSwipe(){
   const photo = document.getElementById('lightbox-photo');
-  let startX = null;
-  photo.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
-  photo.addEventListener('touchend', e => {
-    if (startX === null) return;
-    const dx = e.changedTouches[0].clientX - startX;
-    if (Math.abs(dx) > 40) shiftLightboxImage(dx < 0 ? 1 : -1);
-    startX = null;
-  }, { passive: true });
+  const activePointers = new Map();
+  let pinchStartDist = null;
+  let pinchStartScale = 1;
+  let panStart = null;
+  let lastTapTime = 0;
+  let swipeStartX = null;
+
+  photo.addEventListener('pointerdown', e => {
+    photo.setPointerCapture(e.pointerId);
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size === 1) swipeStartX = e.clientX;
+    if (activePointers.size === 2) {
+      swipeStartX = null; // two fingers down — this is a pinch, not a swipe
+      const pts = Array.from(activePointers.values());
+      pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      pinchStartScale = lbZoomScale;
+    } else if (activePointers.size === 1 && lbZoomScale > 1) {
+      panStart = { x: e.clientX - lbZoomX, y: e.clientY - lbZoomY };
+    }
+  });
+
+  photo.addEventListener('pointermove', e => {
+    if (!activePointers.has(e.pointerId)) return;
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const img = photo.querySelector('img');
+
+    if (activePointers.size === 2 && pinchStartDist) {
+      const pts = Array.from(activePointers.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      lbZoomScale = clampLbZoom(pinchStartScale * (dist / pinchStartDist));
+      if (img) img.style.transition = 'none';
+      applyLightboxZoom();
+    } else if (activePointers.size === 1 && panStart && lbZoomScale > 1) {
+      lbZoomX = e.clientX - panStart.x;
+      lbZoomY = e.clientY - panStart.y;
+      if (img) img.style.transition = 'none';
+      applyLightboxZoom();
+    }
+  });
+
+  function endPointer(e){
+    const wasSwipeCandidate = activePointers.size === 1 && swipeStartX !== null && lbZoomScale <= 1;
+    if (wasSwipeCandidate) {
+      const dx = e.clientX - swipeStartX;
+      if (Math.abs(dx) > 40) shiftLightboxImage(dx < 0 ? 1 : -1);
+    }
+    activePointers.delete(e.pointerId);
+    if (activePointers.size < 2) pinchStartDist = null;
+    if (activePointers.size === 0) { panStart = null; swipeStartX = null; }
+    if (lbZoomScale <= 1.02) { lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; applyLightboxZoom(); }
+  }
+  photo.addEventListener('pointerup', e => {
+    // Double-tap/double-click to toggle zoom — checked before treating this
+    // as a potential swipe, since a quick double-tap shouldn't also count
+    // as two separate swipe gestures.
+    const now = Date.now();
+    const isDoubleTap = now - lastTapTime < 320 && activePointers.size === 1;
+    lastTapTime = now;
+    if (isDoubleTap) {
+      const img = photo.querySelector('img');
+      if (img) img.style.transition = 'transform .2s ease';
+      if (lbZoomScale > 1) { lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; }
+      else { lbZoomScale = 2.2; }
+      applyLightboxZoom();
+      activePointers.delete(e.pointerId);
+      swipeStartX = null;
+      return;
+    }
+    endPointer(e);
+  });
+  photo.addEventListener('pointercancel', endPointer);
+
+  // Desktop mouse-wheel zoom — touch devices use pinch instead.
+  photo.addEventListener('wheel', e => {
+    e.preventDefault();
+    const img = photo.querySelector('img');
+    if (img) img.style.transition = 'none';
+    lbZoomScale = clampLbZoom(lbZoomScale + (e.deltaY < 0 ? 0.18 : -0.18));
+    if (lbZoomScale <= 1) { lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; }
+    applyLightboxZoom();
+  }, { passive: false });
 })();
 
 function rebuildItems(catalogueData){
