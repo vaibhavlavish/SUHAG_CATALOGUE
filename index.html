@@ -110,7 +110,7 @@
     background:#F0EAD9; overflow:hidden; display:flex; align-items:center; justify-content:center;
     touch-action:none;
   }
-  .lightbox-photo img{width:100%; height:100%; object-fit:contain; display:block; transform-origin:center center; user-select:none; -webkit-user-drag:none; touch-action:none;}
+  .lightbox-photo img{width:100%; height:100%; object-fit:contain; display:block; transform-origin:0 0; user-select:none; -webkit-user-drag:none; touch-action:none;}
   .lightbox-tag{
     position:absolute; top:8px; left:8px; z-index:2;
     color:#fff; background:rgba(0,0,0,.45); font-size:11px; letter-spacing:.4px;
@@ -752,14 +752,34 @@ function resetLightboxZoom(){
   applyLightboxZoom();
 }
 
+// Changes the zoom scale while keeping whatever's currently under the given
+// anchor point (pinch midpoint, tap location, or cursor) visually fixed in
+// place — rather than always zooming toward the image's center regardless
+// of where you actually pinched or tapped. anchorX/anchorY are in pixels
+// relative to the photo container's own top-left corner.
+function zoomTowardPoint(anchorX, anchorY, newScale){
+  newScale = clampLbZoom(newScale);
+  const localX = (anchorX - lbZoomX) / lbZoomScale;
+  const localY = (anchorY - lbZoomY) / lbZoomScale;
+  lbZoomX = anchorX - localX * newScale;
+  lbZoomY = anchorY - localY * newScale;
+  lbZoomScale = newScale;
+  applyLightboxZoom();
+}
+
 (function enableLightboxZoomAndSwipe(){
   const photo = document.getElementById('lightbox-photo');
   const activePointers = new Map();
   let pinchStartDist = null;
   let pinchStartScale = 1;
-  let panStart = null;
+  let panStart = null; // { x, y } — the anchor-space offset to preserve while dragging
   let lastTapTime = 0;
   let swipeStartX = null;
+
+  function relativePoint(clientX, clientY){
+    const rect = photo.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
 
   photo.addEventListener('pointerdown', e => {
     photo.setPointerCapture(e.pointerId);
@@ -771,7 +791,8 @@ function resetLightboxZoom(){
       pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       pinchStartScale = lbZoomScale;
     } else if (activePointers.size === 1 && lbZoomScale > 1) {
-      panStart = { x: e.clientX - lbZoomX, y: e.clientY - lbZoomY };
+      const p = relativePoint(e.clientX, e.clientY);
+      panStart = { x: p.x - lbZoomX, y: p.y - lbZoomY };
     }
   });
 
@@ -783,12 +804,15 @@ function resetLightboxZoom(){
     if (activePointers.size === 2 && pinchStartDist) {
       const pts = Array.from(activePointers.values());
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      lbZoomScale = clampLbZoom(pinchStartScale * (dist / pinchStartDist));
+      const midClientX = (pts[0].x + pts[1].x) / 2;
+      const midClientY = (pts[0].y + pts[1].y) / 2;
+      const mid = relativePoint(midClientX, midClientY);
       if (img) img.style.transition = 'none';
-      applyLightboxZoom();
+      zoomTowardPoint(mid.x, mid.y, pinchStartScale * (dist / pinchStartDist));
     } else if (activePointers.size === 1 && panStart && lbZoomScale > 1) {
-      lbZoomX = e.clientX - panStart.x;
-      lbZoomY = e.clientY - panStart.y;
+      const p = relativePoint(e.clientX, e.clientY);
+      lbZoomX = p.x - panStart.x;
+      lbZoomY = p.y - panStart.y;
       if (img) img.style.transition = 'none';
       applyLightboxZoom();
     }
@@ -815,9 +839,12 @@ function resetLightboxZoom(){
     if (isDoubleTap) {
       const img = photo.querySelector('img');
       if (img) img.style.transition = 'transform .2s ease';
-      if (lbZoomScale > 1) { lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; }
-      else { lbZoomScale = 2.2; }
-      applyLightboxZoom();
+      if (lbZoomScale > 1) {
+        lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; applyLightboxZoom();
+      } else {
+        const p = relativePoint(e.clientX, e.clientY);
+        zoomTowardPoint(p.x, p.y, 2.2);
+      }
       activePointers.delete(e.pointerId);
       swipeStartX = null;
       return;
@@ -826,14 +853,19 @@ function resetLightboxZoom(){
   });
   photo.addEventListener('pointercancel', endPointer);
 
-  // Desktop mouse-wheel zoom — touch devices use pinch instead.
+  // Desktop mouse-wheel zoom, anchored to the cursor position — touch
+  // devices use pinch instead.
   photo.addEventListener('wheel', e => {
     e.preventDefault();
     const img = photo.querySelector('img');
     if (img) img.style.transition = 'none';
-    lbZoomScale = clampLbZoom(lbZoomScale + (e.deltaY < 0 ? 0.18 : -0.18));
-    if (lbZoomScale <= 1) { lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; }
-    applyLightboxZoom();
+    const newScale = lbZoomScale + (e.deltaY < 0 ? 0.18 : -0.18);
+    if (newScale <= 1) {
+      lbZoomScale = 1; lbZoomX = 0; lbZoomY = 0; applyLightboxZoom();
+    } else {
+      const p = relativePoint(e.clientX, e.clientY);
+      zoomTowardPoint(p.x, p.y, newScale);
+    }
   }, { passive: false });
 })();
 
