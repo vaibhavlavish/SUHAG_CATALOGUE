@@ -260,6 +260,25 @@
   .trending-card .name{ font-size:12.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 3px; }
   .trending-card .price{ font-size:13px; font-weight:700; color:#2E7D46; margin:0; }
 
+  .reel-card{
+    flex:0 0 auto; width:120px; scroll-snap-align:start; background:#fff; border:1px solid #EEE3CC;
+    border-radius:12px; overflow:hidden; cursor:pointer; position:relative;
+  }
+  .reel-card .photo{ width:100%; aspect-ratio:9/16; background:#F0EAD9; position:relative; }
+  .reel-card .photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .reel-card .play-badge{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.15);
+  }
+  .reel-card .play-badge span{
+    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,.9);
+    display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--oxblood);
+  }
+  .reel-card .shop-tag{
+    position:absolute; left:6px; bottom:6px; font-size:9.5px; font-weight:700; letter-spacing:.2px;
+    color:#fff; background:rgba(0,0,0,.55); padding:3px 6px; border-radius:5px;
+  }
+
   .lb-related{ margin-top:16px; padding-top:14px; border-top:1px solid #EEE3CC; }
   .lb-related-heading{ font-size:14px; font-weight:700; color:var(--ink); margin:0 0 10px; }
   .lb-related-scroll{
@@ -372,6 +391,10 @@
   <div class="trending-section" id="trending-section" style="display:none;">
     <p class="trending-heading display">Currently Popular</p>
     <div class="trending-scroll" id="trending-scroll"></div>
+  </div>
+  <div class="trending-section" id="reels-section" style="display:none;">
+    <p class="trending-heading display">From Our Instagram</p>
+    <div class="trending-scroll" id="reels-scroll"></div>
   </div>
 </div>
 
@@ -522,6 +545,7 @@ let CATEGORY_ICONS = {}; // { categoryKey: {imageUrl} } — a custom graphic set
 let CATEGORY_SETTINGS = {}; // { categoryKey: {purity, showWeight, groupRemarks, sizeChartId, nameOverride} } — defaults every item in that category inherits unless it has its own override
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let TRENDING_TAGS = []; // ordered array of tag/barcode strings, set from the Upload Terminal
+let REELS = []; // [{ id, reelUrl, thumbnailUrl, itemBarcode, categoryKey, order }] — set from the Upload Terminal
 let CURRENT_VIEW = 'home';
 
 function categoryKey(name){
@@ -1068,6 +1092,33 @@ function rebuildItems(catalogueData){
 // shop assigned it. If a banner's category no longer has any live items
 // (e.g. everything in it sold), browse view just shows the normal "no
 // pieces right now" empty state for that category rather than looking broken.
+// Shared by home banners and Instagram reels — both can be tagged to jump
+// straight to a specific item, or to a whole category, using the exact same
+// resolution logic either way.
+function navigateToTaggedTarget(itemBarcode, categoryKey){
+  if (itemBarcode) {
+    const item = ALL_ITEMS.find(i => i.catalogKey.toUpperCase() === itemBarcode.toUpperCase());
+    if (item) {
+      ACTIVE_CATEGORY = item.categoryKey;
+      goToView('browse');
+      renderCategorySlider();
+      renderGrid();
+      openLightbox(item);
+      return true;
+    }
+    // Item no longer exists (sold with no replacement, deleted, etc.) —
+    // fall through to a plain category/All browse rather than doing nothing.
+  }
+  if (categoryKey) {
+    ACTIVE_CATEGORY = (categoryKey === 'all') ? 'All' : categoryKey;
+    goToView('browse');
+    renderCategorySlider();
+    renderGrid();
+    return true;
+  }
+  return false;
+}
+
 function renderHomeBanners(){
   const wrap = document.getElementById('home-banners');
   wrap.innerHTML = HOME_BANNERS.map((b, i) => `
@@ -1080,25 +1131,13 @@ function renderHomeBanners(){
     el.addEventListener('click', () => {
       const banner = HOME_BANNERS[Number(el.dataset.idx)];
       if (!banner) return;
-
-      if (banner.itemBarcode) {
-        const item = ALL_ITEMS.find(i => i.catalogKey.toUpperCase() === banner.itemBarcode.toUpperCase());
-        if (item) {
-          ACTIVE_CATEGORY = item.categoryKey;
-          goToView('browse');
-          renderCategorySlider();
-          renderGrid();
-          openLightbox(item);
-          return;
-        }
-        // Item no longer exists (sold with no replacement, deleted, etc.) —
-        // fall through to a plain "All" browse rather than doing nothing.
+      if (!navigateToTaggedTarget(banner.itemBarcode, banner.categoryKey)) {
+        // Neither an item nor a category was set at all — just go to "All".
+        ACTIVE_CATEGORY = 'All';
+        goToView('browse');
+        renderCategorySlider();
+        renderGrid();
       }
-
-      ACTIVE_CATEGORY = (banner.categoryKey === 'all' || !banner.categoryKey) ? 'All' : banner.categoryKey;
-      goToView('browse');
-      renderCategorySlider();
-      renderGrid();
     });
   });
 }
@@ -1147,6 +1186,43 @@ function renderTrending(){
       renderCategorySlider();
       renderGrid();
       openLightbox(item);
+    });
+  });
+}
+
+function renderReels(){
+  const section = document.getElementById('reels-section');
+  const wrap = document.getElementById('reels-scroll');
+
+  if (!REELS.length) {
+    section.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  wrap.innerHTML = REELS.map((reel, i) => {
+    const isTagged = !!(reel.itemBarcode || reel.categoryKey);
+    return `
+      <div class="reel-card" data-idx="${i}">
+        <div class="photo">
+          <img src="${reel.thumbnailUrl}" alt="" loading="lazy">
+          <div class="play-badge"><span>▶</span></div>
+          ${isTagged ? '<span class="shop-tag">Shop This</span>' : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('.reel-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const reel = REELS[Number(el.dataset.idx)];
+      if (!reel) return;
+      // Tagged to a specific item or category — jump straight there, same
+      // as a home banner would. Not tagged at all — just go watch the reel.
+      if (!navigateToTaggedTarget(reel.itemBarcode, reel.categoryKey)) {
+        window.open(reel.reelUrl, '_blank', 'noopener');
+      }
     });
   });
 }
@@ -1506,6 +1582,14 @@ onValue(ref(db, 'catalogue/categoryIcons'), snap => {
 onValue(ref(db, 'catalogue/trendingTags'), snap => {
   TRENDING_TAGS = snap.val() || [];
   renderTrending();
+}, err => console.error(err));
+
+onValue(ref(db, 'catalogue/reels'), snap => {
+  const val = snap.val() || {};
+  REELS = Object.keys(val)
+    .map(id => ({ id, ...val[id] }))
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  renderReels();
 }, err => console.error(err));
 
 // Deciding the initial screen needs BOTH catalogue items (to resolve a
