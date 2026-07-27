@@ -155,6 +155,7 @@
   .lb-size-row{ font-size:13.5px; color:var(--ink-soft); margin:0 0 14px; }
   .lb-size-row b{ color:var(--ink); font-weight:700; }
   .lb-price{ font-size:25px; font-weight:800; color:#2E7D46; margin:0 0 18px; }
+  .lb-scarcity{ font-size:12.5px; font-weight:700; color:var(--oxblood); margin:-12px 0 16px; }
   .lb-buynow-btn{
     display:block; width:100%; text-align:center; border-radius:11px; padding:12px 0; border:none;
     background:var(--oxblood); color:var(--ivory); font-weight:700; font-size:14px;
@@ -455,6 +456,7 @@
       <p class="lb-size-row" id="lightbox-size-row">Size: <b id="lightbox-size"></b> <button class="size-chart-btn" id="lightbox-sizechart-btn" type="button" style="display:none;">📏 Size Chart</button></p>
       <div class="lb-description" id="lightbox-description"></div>
       <p class="lb-price" id="lightbox-price"></p>
+      <p class="lb-scarcity" id="lightbox-scarcity" style="display:none;"></p>
       <button class="lb-buynow-btn" id="lightbox-buynow-btn" type="button">Buy Now</button>
       <button class="lb-cart-btn" id="lightbox-cart-btn" type="button">+ Add to Cart</button>
       <button class="lb-share-btn" id="lightbox-share" type="button">🔗 Share This Piece</button>
@@ -608,7 +610,7 @@ function renderGrid(){
       <div class="card-photo">
         <img src="${item.thumbs[0]}" alt="" loading="lazy">
         <span class="tag">${item.barcode}</span>
-        ${item.isUnique ? '<span class="scarcity-badge">Only 1 Available</span>' : ''}
+        ${item.scarcityBadge ? `<span class="scarcity-badge">${item.scarcityBadge === 1 ? 'Only 1 Available' : `Only ${item.scarcityBadge} Left`}</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -648,6 +650,14 @@ function openLightboxDom(item){
 
   document.getElementById('lightbox-price').textContent =
     item.price != null ? formatPrice(item.price) : 'Price on request';
+
+  const scarcityEl = document.getElementById('lightbox-scarcity');
+  if (item.scarcityBadge) {
+    scarcityEl.textContent = item.scarcityBadge === 1 ? '⚠ Only 1 Available' : `⚠ Only ${item.scarcityBadge} Left`;
+    scarcityEl.style.display = 'block';
+  } else {
+    scarcityEl.style.display = 'none';
+  }
 
   renderLightboxDescription(item);
   renderRelatedItems(item);
@@ -1004,6 +1014,15 @@ function rebuildItems(catalogueData){
       const showWeight = typeof node.showWeight === 'boolean' ? node.showWeight
         : (typeof catDefaults.showWeight === 'boolean' ? catDefaults.showWeight : false);
 
+      // Same pattern: a shop-set toggle/number always wins over the
+      // category default, and "explicitly off" has to count as a real
+      // choice, not just "unset" — otherwise a category default of "on"
+      // could never be turned off for one specific group.
+      const scarcityEnabled = typeof node.scarcityEnabled === 'boolean' ? node.scarcityEnabled
+        : (typeof catDefaults.scarcityEnabled === 'boolean' ? catDefaults.scarcityEnabled : false);
+      const scarcityCount = (typeof node.scarcityCount === 'number' && node.scarcityCount > 0) ? node.scarcityCount
+        : ((typeof catDefaults.scarcityCount === 'number' && catDefaults.scarcityCount > 0) ? catDefaults.scarcityCount : null);
+
       return {
         barcode: node.activeBarcode || bc,
         catalogKey: bc, // stable identifier for deep links — doesn't change even if a linked group's active tag does
@@ -1020,12 +1039,7 @@ function rebuildItems(catalogueData){
         groupRemarks: node.groupRemarks || catDefaults.groupRemarks || '',
         groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
         sizeChartId: node.sizeChartId || catDefaults.sizeChartId || '',
-        // Genuinely one physical piece with no backup — only true for a
-        // barcode that was never linked to any others, not a marketing
-        // claim. Linked groups (however many tags remain in stock) never get
-        // this badge, since another one is available even if this exact tag
-        // sells.
-        isUnique: !(Array.isArray(node.linkedBarcodes) && node.linkedBarcodes.length > 1),
+        scarcityBadge: (scarcityEnabled && scarcityCount) ? scarcityCount : null,
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
