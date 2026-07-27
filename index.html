@@ -529,6 +529,12 @@ function categoryKey(name){
 }
 function categoryLabel(key){
   if (!key) return 'Other';
+  // A custom label (set in the Upload Terminal's Category Defaults) always
+  // wins — this only ever changes what the chip is CALLED, never which
+  // items actually fall under it. Category membership itself always stays
+  // tied to the raw POS name, same as before.
+  const override = (CATEGORY_SETTINGS[key] && CATEGORY_SETTINGS[key].categoryLabel) || '';
+  if (override.trim()) return override.trim();
   return key.replace(/\s+/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
