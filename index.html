@@ -36,14 +36,27 @@
   .tagline{margin:4px 0 0; font-size:13px; color:var(--gold-soft);}
 
   .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:28px; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
+  .search-row{ margin-bottom:10px; }
+  .search-input{
+    width:100%; padding:10px 14px; border-radius:999px; border:1.5px solid #E6DCCB;
+    background:#fff; font-family:'Work Sans',sans-serif; font-size:13.5px; color:var(--ink); outline:none;
+  }
+  .search-input:focus{ border-color:var(--gold); }
+  .search-input::placeholder{ color:var(--ink-soft); }
   .category-slider{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 0;}
   .category-slider::-webkit-scrollbar{display:none;}
   .category-chip{
     flex:0 0 auto; padding:8px 16px; border-radius:999px; border:1.5px solid #E6DCCB;
     background:#fff; color:var(--ink-soft); font-family:'Work Sans',sans-serif; font-size:13px; font-weight:600;
-    white-space:nowrap; cursor:pointer;
+    white-space:nowrap; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
   }
   .category-chip.active{background:var(--oxblood); border-color:var(--oxblood); color:var(--ivory);}
+  .category-chip.has-icon{ padding-left:6px; }
+  .chip-icon{
+    width:24px; height:24px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    background:#F0EAD9; display:block;
+  }
+  .chip-icon img{ width:100%; height:100%; object-fit:cover; display:block; }
 
   main{padding:16px 16px 40px; max-width:920px; margin:0 auto;}
   .grid{display:grid; grid-template-columns: 1fr; gap:18px;}
@@ -60,6 +73,10 @@
   .card-photo .tag{
     position:absolute; left:8px; bottom:8px; font-size:11.5px; letter-spacing:.3px;
     color:var(--ink-soft); background:rgba(255,255,255,.85); padding:3px 8px; border-radius:6px;
+  }
+  .card-photo .scarcity-badge{
+    position:absolute; right:8px; top:8px; font-size:10.5px; font-weight:700; letter-spacing:.2px;
+    color:var(--ivory); background:var(--oxblood); padding:4px 8px; border-radius:6px;
   }
 
   .state-msg{text-align:center; color:var(--ink-soft); font-size:13.5px; padding:60px 20px;}
@@ -242,6 +259,22 @@
   .trending-card .name{ font-size:12.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 3px; }
   .trending-card .price{ font-size:13px; font-weight:700; color:#2E7D46; margin:0; }
 
+  .lb-related{ margin-top:16px; padding-top:14px; border-top:1px solid #EEE3CC; }
+  .lb-related-heading{ font-size:14px; font-weight:700; color:var(--ink); margin:0 0 10px; }
+  .lb-related-scroll{
+    display:flex; gap:10px; overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity;
+    padding:2px 2px 6px;
+  }
+  .lb-related-card{
+    flex:0 0 auto; width:100px; scroll-snap-align:start; background:#fff; border:1px solid #EEE3CC;
+    border-radius:10px; overflow:hidden; cursor:pointer;
+  }
+  .lb-related-card .photo{ width:100%; aspect-ratio:1/1; background:#F0EAD9; }
+  .lb-related-card .photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .lb-related-card .info{ padding:6px 7px 8px; }
+  .lb-related-card .name{ font-size:11px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 0 2px; }
+  .lb-related-card .price{ font-size:11.5px; font-weight:700; color:#2E7D46; margin:0; }
+
   @media (prefers-reduced-motion: reduce){ .card{animation:none; opacity:1; transform:none;} .home-banner{animation:none; opacity:1; transform:none;} }
 
   /* ---------- Google Reviews (read-only, pulled live from your Business Profile) ---------- */
@@ -327,6 +360,9 @@
 </div>
 
 <div class="toolbar">
+  <div class="search-row">
+    <input type="text" id="search-input" class="search-input" placeholder="🔍 Search by name or tag…" autocomplete="off">
+  </div>
   <div class="category-slider" id="category-slider"></div>
 </div>
 
@@ -422,6 +458,10 @@
       <button class="lb-buynow-btn" id="lightbox-buynow-btn" type="button">Buy Now</button>
       <button class="lb-cart-btn" id="lightbox-cart-btn" type="button">+ Add to Cart</button>
       <button class="lb-share-btn" id="lightbox-share" type="button">🔗 Share This Piece</button>
+      <div class="lb-related" id="lb-related" style="display:none;">
+        <p class="lb-related-heading">You Might Also Like</p>
+        <div class="lb-related-scroll" id="lb-related-scroll"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -476,6 +516,7 @@ let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKe
 let ACTIVE_CATEGORY = 'All';
 let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight, purity} }, keyed uppercase
 let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
+let CATEGORY_ICONS = {}; // { categoryKey: {imageUrl} } — a custom graphic set by the shop, takes priority over the auto-picked product photo
 let CATEGORY_SETTINGS = {}; // { categoryKey: {purity, showWeight, groupRemarks, sizeChartId, nameOverride} } — defaults every item in that category inherits unless it has its own override
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let TRENDING_TAGS = []; // ordered array of tag/barcode strings, set from the Upload Terminal
@@ -502,10 +543,21 @@ function collectImages(node){
   Object.keys(images).forEach(id => {
     const img = images[id];
     if (!img || !img.imageUrl || img.hiddenAt) return;
-    entries.push({ url: img.imageUrl, thumb: img.thumbUrl || img.imageUrl, t: img.uploadedAt || 0 });
+    entries.push({ id, url: img.imageUrl, thumb: img.thumbUrl || img.imageUrl, t: img.uploadedAt || 0 });
   });
-  if (node && node.imageUrl) entries.push({ url: node.imageUrl, thumb: node.imageUrl, t: node.uploadedAt || 0 });
+  if (node && node.imageUrl) entries.push({ id: null, url: node.imageUrl, thumb: node.imageUrl, t: node.uploadedAt || 0 });
   entries.sort((a, b) => a.t - b.t);
+
+  // A shop-chosen main photo (set in the Upload Terminal's Manage tab) leads
+  // the carousel and becomes the grid thumbnail — otherwise it just defaults
+  // to whichever photo was uploaded first, same as before.
+  if (node && node.mainPhotoId) {
+    const idx = entries.findIndex(e => e.id === node.mainPhotoId);
+    if (idx > 0) {
+      const [main] = entries.splice(idx, 1);
+      entries.unshift(main);
+    }
+  }
   return entries;
 }
 
@@ -516,12 +568,22 @@ function renderCategorySlider(){
   slider.innerHTML = chips.map(key => {
     const label = key === 'All' ? 'All' : categoryLabel(key);
     const active = key === ACTIVE_CATEGORY ? ' active' : '';
-    return `<button class="category-chip${active}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">${label}</button>`;
+    // A custom icon set by the shop always wins over the auto-picked photo —
+    // that fallback only exists so a category never shows completely bare
+    // before the shop has gotten around to uploading a proper icon for it.
+    const iconUrl = key === 'All'
+      ? null
+      : (CATEGORY_ICONS[key] && CATEGORY_ICONS[key].imageUrl) || (ALL_ITEMS.find(i => i.categoryKey === key) || {}).thumbs?.[0];
+    const iconHtml = iconUrl ? `<span class="chip-icon"><img src="${iconUrl}" alt="" loading="lazy"></span>` : '';
+    const hasIconClass = iconUrl ? ' has-icon' : '';
+    return `<button class="category-chip${active}${hasIconClass}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">${iconHtml}${label}</button>`;
   }).join('');
 
   slider.querySelectorAll('.category-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       ACTIVE_CATEGORY = chip.dataset.key;
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.value = '';
       goToView('browse');
       renderCategorySlider();
       renderGrid();
@@ -530,7 +592,15 @@ function renderCategorySlider(){
 }
 
 function renderGrid(){
-  const items = ACTIVE_CATEGORY === 'All' ? ALL_ITEMS : ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY);
+  const searchVal = (document.getElementById('search-input')?.value || '').trim().toUpperCase();
+
+  // Searching deliberately looks across every category, not just the
+  // currently selected one — someone searching for a specific piece by name
+  // or tag almost certainly doesn't want to first guess which category chip
+  // it's filed under.
+  const items = searchVal
+    ? ALL_ITEMS.filter(i => (i.displayName || '').toUpperCase().includes(searchVal) || i.barcode.toUpperCase().includes(searchVal))
+    : (ACTIVE_CATEGORY === 'All' ? ALL_ITEMS : ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY));
 
   const grid = document.getElementById('grid');
   grid.innerHTML = items.map((item, i) => `
@@ -538,9 +608,14 @@ function renderGrid(){
       <div class="card-photo">
         <img src="${item.thumbs[0]}" alt="" loading="lazy">
         <span class="tag">${item.barcode}</span>
+        ${item.isUnique ? '<span class="scarcity-badge">Only 1 Available</span>' : ''}
       </div>
     </div>
   `).join('');
+
+  document.getElementById('empty-msg').classList.toggle('hide', items.length > 0);
+  const emptyMsgEl = document.getElementById('empty-msg');
+  if (emptyMsgEl) emptyMsgEl.textContent = searchVal ? 'No items match your search.' : 'Nothing here yet.';
 
   grid.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', () => {
@@ -548,8 +623,6 @@ function renderGrid(){
       if (item) openLightbox(item);
     });
   });
-
-  document.getElementById('empty-msg').classList.toggle('hide', items.length > 0);
 }
 
 let currentLightboxItem = null;
@@ -577,10 +650,48 @@ function openLightboxDom(item){
     item.price != null ? formatPrice(item.price) : 'Price on request';
 
   renderLightboxDescription(item);
+  renderRelatedItems(item);
   document.getElementById('lightbox').dataset.shareUrl = buildItemShareUrl(item);
   updateCartBtnState(item);
 
   document.getElementById('lightbox').classList.add('open');
+}
+
+// A handful of other items from the same category, shown below the action
+// buttons — keeps someone browsing after one item instead of leaving right
+// after it, and costs nothing extra to compute since the category data
+// already exists for the chips at the top of the page.
+function renderRelatedItems(item){
+  const section = document.getElementById('lb-related');
+  const scroll = document.getElementById('lb-related-scroll');
+
+  const related = ALL_ITEMS
+    .filter(i => i.categoryKey === item.categoryKey && i.catalogKey !== item.catalogKey)
+    .slice(0, 8);
+
+  if (!related.length) {
+    section.style.display = 'none';
+    scroll.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  scroll.innerHTML = related.map((rel, i) => `
+    <div class="lb-related-card" data-idx="${i}">
+      <div class="photo"><img src="${rel.thumbs[0]}" alt="" loading="lazy"></div>
+      <div class="info">
+        <p class="name">${escapeHtml(rel.displayName || 'Jewellery item')}</p>
+        <p class="price">${rel.price != null ? formatPrice(rel.price) : 'Ask price'}</p>
+      </div>
+    </div>
+  `).join('');
+
+  scroll.querySelectorAll('.lb-related-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const rel = related[Number(card.dataset.idx)];
+      if (rel) openLightbox(rel);
+    });
+  });
 }
 
 // User tapped a photo — opens the popup AND records a history entry, so the
@@ -909,6 +1020,12 @@ function rebuildItems(catalogueData){
         groupRemarks: node.groupRemarks || catDefaults.groupRemarks || '',
         groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
         sizeChartId: node.sizeChartId || catDefaults.sizeChartId || '',
+        // Genuinely one physical piece with no backup — only true for a
+        // barcode that was never linked to any others, not a marketing
+        // claim. Linked groups (however many tags remain in stock) never get
+        // this badge, since another one is available even if this exact tag
+        // sells.
+        isUnique: !(Array.isArray(node.linkedBarcodes) && node.linkedBarcodes.length > 1),
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
@@ -1034,6 +1151,16 @@ function goToView(name){
 }
 
 document.getElementById('home-link').addEventListener('click', () => goToView('home'));
+
+document.getElementById('search-input').addEventListener('input', () => {
+  // Typing a search from the home screen should immediately show results,
+  // not require switching to Browse first.
+  if (CURRENT_VIEW === 'home' && document.getElementById('search-input').value.trim()) {
+    goToView('browse');
+    renderCategorySlider();
+  }
+  renderGrid();
+});
 
 // ---------- Cart & Checkout ----------
 // Cart lives in this browser only (localStorage) — nothing about it touches
@@ -1349,6 +1476,11 @@ onValue(ref(db, 'catalogue/tagDescriptions'), snap => {
 onValue(ref(db, 'catalogue/sizeCharts'), snap => {
   SIZE_CHARTS = snap.val() || {};
   if (currentLightboxItem) renderLightboxDescription(currentLightboxItem);
+}, err => console.error(err));
+
+onValue(ref(db, 'catalogue/categoryIcons'), snap => {
+  CATEGORY_ICONS = snap.val() || {};
+  if (ALL_ITEMS.length) renderCategorySlider();
 }, err => console.error(err));
 
 onValue(ref(db, 'catalogue/trendingTags'), snap => {
