@@ -1202,13 +1202,21 @@ function renderReels(){
   }
 
   section.style.display = 'block';
-  wrap.innerHTML = REELS.map((reel, i) => {
+  const displayable = REELS.filter(r => r.videoUrl || r.thumbnailUrl); // a reel with neither has nothing to actually show
+  if (!displayable.length) {
+    section.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.innerHTML = displayable.map((reel, i) => {
     const isTagged = !!(reel.itemBarcode || reel.categoryKey);
     // A video only gets a data-src for now, not a real src — that's what
     // keeps it from downloading anything until the IntersectionObserver
     // below confirms this exact card has actually scrolled into view.
+    const posterAttr = reel.thumbnailUrl ? ` poster="${reel.thumbnailUrl}"` : '';
     const media = reel.videoUrl
-      ? `<video class="reel-video" data-src="${reel.videoUrl}" poster="${reel.thumbnailUrl}" muted loop playsinline preload="none"></video>`
+      ? `<video class="reel-video" data-src="${reel.videoUrl}"${posterAttr} muted loop playsinline preload="none"></video>`
       : `<img src="${reel.thumbnailUrl}" alt="" loading="lazy">`;
     return `
       <div class="reel-card" data-idx="${i}">
@@ -1223,11 +1231,14 @@ function renderReels(){
 
   wrap.querySelectorAll('.reel-card').forEach(el => {
     el.addEventListener('click', () => {
-      const reel = REELS[Number(el.dataset.idx)];
+      const reel = displayable[Number(el.dataset.idx)];
       if (!reel) return;
       // Tagged to a specific item or category — jump straight there, same
-      // as a home banner would. Not tagged at all — just go watch the reel.
-      if (!navigateToTaggedTarget(reel.itemBarcode, reel.categoryKey)) {
+      // as a home banner would. Not tagged, but there's an actual reel link
+      // — open that instead. Neither one set — nothing to do, so just leave
+      // the tap silently without action (this'll just be the autoplaying
+      // video sitting there, which is already the whole point of the card).
+      if (!navigateToTaggedTarget(reel.itemBarcode, reel.categoryKey) && reel.reelUrl) {
         window.open(reel.reelUrl, '_blank', 'noopener');
       }
     });
@@ -1242,7 +1253,7 @@ function renderReels(){
       entries.forEach(entry => {
         const video = entry.target;
         if (entry.isIntersecting) {
-          if (!video.src && video.dataset.src) video.src = video.dataset.src; // first time this card is seen — start loading now, not before
+          if (!video.src && video.dataset.src) { video.muted = true; video.src = video.dataset.src; } // first time this card is seen — start loading now, not before
           video.play().catch(() => {}); // ignored — browsers can reject autoplay in some edge cases, thumbnail (poster) still shows either way
         } else {
           video.pause();
