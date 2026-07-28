@@ -1635,6 +1635,8 @@ onValue(ref(db, 'catalogue/homeBanners'), snap => {
 
 onValue(ref(db, 'catalogue/tagDescriptions'), snap => {
   TAG_DESCRIPTIONS = snap.val() || {};
+  // Re-render grid to update badges now that TAG_DESCRIPTIONS has loaded
+  if (ALL_ITEMS.length) rebuildItems(latestCatalogueData);
   // If someone's looking at an item right now and the shop just edited its
   // tag description, reflect that immediately rather than needing a reload.
   if (currentLightboxItem) renderLightboxDescription(currentLightboxItem);
