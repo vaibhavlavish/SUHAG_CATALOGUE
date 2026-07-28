@@ -1056,8 +1056,8 @@ function rebuildItems(catalogueData){
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
       const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
       
-      // Check tag descriptions for tag-specific overrides
-      const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[bc.toUpperCase()]);
+      // Check tag descriptions for tag-specific overrides (with null check for TAG_DESCRIPTIONS)
+      const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS ? TAG_DESCRIPTIONS[bc.toUpperCase()] : null);
 
       // A specific barcode's own saved value always wins over the category
       // default — the category default is just what applies when nothing
