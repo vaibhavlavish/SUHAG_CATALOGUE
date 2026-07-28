@@ -799,9 +799,9 @@ function renderLightboxImage(){
 // Older saved tag descriptions are a plain string; newer ones carry their
 // own weight/purity overrides too. This normalizes either into one shape.
 function normalizeTagDesc(raw){
-  if (!raw) return { text: '', showWeight: false, purity: '', nameOverride: '' };
-  if (typeof raw === 'string') return { text: raw, showWeight: false, purity: '', nameOverride: '' };
-  return { text: raw.text || '', showWeight: !!raw.showWeight, purity: raw.purity || '', nameOverride: raw.nameOverride || '' };
+  if (!raw) return { text: '', showWeight: false, purity: '', nameOverride: '', scarcityEnabled: false, scarcityCount: null };
+  if (typeof raw === 'string') return { text: raw, showWeight: false, purity: '', nameOverride: '', scarcityEnabled: false, scarcityCount: null };
+  return { text: raw.text || '', showWeight: !!raw.showWeight, purity: raw.purity || '', nameOverride: raw.nameOverride || '', scarcityEnabled: !!raw.scarcityEnabled, scarcityCount: (typeof raw.scarcityCount === 'number' && raw.scarcityCount > 0) ? raw.scarcityCount : null };
 }
 
 // Combines whatever the shop has configured for this piece — purity, weight
@@ -1055,6 +1055,9 @@ function rebuildItems(catalogueData){
       const displayName = node.displayName || '';
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
       const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
+      
+      // Check tag descriptions for tag-specific overrides
+      const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS[bc.toUpperCase()]);
 
       // A specific barcode's own saved value always wins over the category
       // default — the category default is just what applies when nothing
@@ -1068,10 +1071,16 @@ function rebuildItems(catalogueData){
       // category default, and "explicitly off" has to count as a real
       // choice, not just "unset" — otherwise a category default of "on"
       // could never be turned off for one specific group.
-      const scarcityEnabled = typeof node.scarcityEnabled === 'boolean' ? node.scarcityEnabled
-        : (typeof catDefaults.scarcityEnabled === 'boolean' ? catDefaults.scarcityEnabled : false);
-      const scarcityCount = (typeof node.scarcityCount === 'number' && node.scarcityCount > 0) ? node.scarcityCount
-        : ((typeof catDefaults.scarcityCount === 'number' && catDefaults.scarcityCount > 0) ? catDefaults.scarcityCount : null);
+      // Also check tag descriptions for per-tag scarcity configuration
+      const scarcityEnabledFromNode = typeof node.scarcityEnabled === 'boolean' ? node.scarcityEnabled : null;
+      const scarcityEnabledFromTag = tagDesc.scarcityEnabled ? tagDesc.scarcityEnabled : null;
+      const scarcityEnabledFromCat = typeof catDefaults.scarcityEnabled === 'boolean' ? catDefaults.scarcityEnabled : false;
+      const scarcityEnabled = (scarcityEnabledFromNode !== null) ? scarcityEnabledFromNode : (scarcityEnabledFromTag !== null) ? scarcityEnabledFromTag : scarcityEnabledFromCat;
+      
+      const scarcityCountFromNode = (typeof node.scarcityCount === 'number' && node.scarcityCount > 0) ? node.scarcityCount : null;
+      const scarcityCountFromTag = (tagDesc.scarcityCount !== null) ? tagDesc.scarcityCount : null;
+      const scarcityCountFromCat = (typeof catDefaults.scarcityCount === 'number' && catDefaults.scarcityCount > 0) ? catDefaults.scarcityCount : null;
+      const scarcityCount = scarcityCountFromNode !== null ? scarcityCountFromNode : scarcityCountFromTag !== null ? scarcityCountFromTag : scarcityCountFromCat;
 
       return {
         barcode: node.activeBarcode || bc,
