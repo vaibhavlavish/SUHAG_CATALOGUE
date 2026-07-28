@@ -1041,6 +1041,11 @@ function zoomTowardPoint(anchorX, anchorY, newScale){
 })();
 
 function rebuildItems(catalogueData){
+  // ULTRA-SAFE: Ensure TAG_DESCRIPTIONS exists before using it
+  if (typeof TAG_DESCRIPTIONS === 'undefined') {
+    window.TAG_DESCRIPTIONS = {};
+  }
+  
   // A barcode is shown once the shop marks it available AND it has at least
   // one visible photo, in either the multi-photo or the older single-photo format.
   const barcodes = Object.keys(catalogueData).filter(bc => {
@@ -1056,8 +1061,8 @@ function rebuildItems(catalogueData){
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
       const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
       
-      // Check tag descriptions for tag-specific overrides (with null check for TAG_DESCRIPTIONS)
-      const tagDesc = normalizeTagDesc(TAG_DESCRIPTIONS ? TAG_DESCRIPTIONS[bc.toUpperCase()] : null);
+      // ULTRA-SAFE: Ensure TAG_DESCRIPTIONS exists and handle gracefully
+      const tagDesc = normalizeTagDesc((typeof TAG_DESCRIPTIONS !== 'undefined' && TAG_DESCRIPTIONS) ? TAG_DESCRIPTIONS[bc.toUpperCase()] : null);
 
       // A specific barcode's own saved value always wins over the category
       // default — the category default is just what applies when nothing
