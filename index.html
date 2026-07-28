@@ -540,6 +540,7 @@ const SHOP_WHATSAPP_NUMBER = '919327647044';
 
 let ALL_ITEMS = [];      // [{ barcode, images:[url,...], uploadedAt, categoryKey, displayName, size, price }]
 let ACTIVE_CATEGORY = 'All';
+let CUSTOM_CATEGORIES = []; // [{ id, name, barcodes: [...], order }] — manually curated collections, independent of item names
 let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight, purity} }, keyed uppercase
 let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
 let CATEGORY_ICONS = {}; // { categoryKey: {imageUrl} } — a custom graphic set by the shop, takes priority over the auto-picked product photo
@@ -598,6 +599,8 @@ function renderCategorySlider(){
   const keys = Array.from(new Set(ALL_ITEMS.map(i => i.categoryKey))).sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
   const slider = document.getElementById('category-slider');
   const chips = ['All', ...keys];
+  const nonEmptyCustom = CUSTOM_CATEGORIES.filter(c => c.barcodes.length > 0);
+
   slider.innerHTML = chips.map(key => {
     const label = key === 'All' ? 'All' : categoryLabel(key);
     const active = key === ACTIVE_CATEGORY ? ' active' : '';
@@ -610,6 +613,10 @@ function renderCategorySlider(){
     const iconHtml = iconUrl ? `<span class="chip-icon"><img src="${iconUrl}" alt="" loading="lazy"></span>` : '';
     const hasIconClass = iconUrl ? ' has-icon' : '';
     return `<button class="category-chip${active}${hasIconClass}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">${iconHtml}${label}</button>`;
+  }).join('') + nonEmptyCustom.map(cat => {
+    const dataKey = 'custom:' + cat.id;
+    const active = dataKey === ACTIVE_CATEGORY ? ' active' : '';
+    return `<button class="category-chip${active}" data-key="${dataKey}">${cat.name.replace(/</g,'&lt;')}</button>`;
   }).join('');
 
   slider.querySelectorAll('.category-chip').forEach(chip => {
@@ -631,9 +638,21 @@ function renderGrid(){
   // currently selected one — someone searching for a specific piece by name
   // or tag almost certainly doesn't want to first guess which category chip
   // it's filed under.
-  const items = searchVal
-    ? ALL_ITEMS.filter(i => (i.displayName || '').toUpperCase().includes(searchVal) || i.barcode.toUpperCase().includes(searchVal))
-    : (ACTIVE_CATEGORY === 'All' ? ALL_ITEMS : ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY));
+  let items;
+  if (searchVal) {
+    items = ALL_ITEMS.filter(i => (i.displayName || '').toUpperCase().includes(searchVal) || i.barcode.toUpperCase().includes(searchVal));
+  } else if (ACTIVE_CATEGORY === 'All') {
+    items = ALL_ITEMS;
+  } else if (ACTIVE_CATEGORY.startsWith('custom:')) {
+    // A custom category filters by explicit barcode membership, not by the
+    // item's own auto-derived category — an item can belong to its normal
+    // category AND any number of custom ones at the same time.
+    const customCat = CUSTOM_CATEGORIES.find(c => c.id === ACTIVE_CATEGORY.slice(7));
+    const barcodeSet = new Set((customCat?.barcodes || []).map(b => b.toUpperCase()));
+    items = ALL_ITEMS.filter(i => barcodeSet.has(i.catalogKey.toUpperCase()));
+  } else {
+    items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY);
+  }
 
   const grid = document.getElementById('grid');
   grid.innerHTML = items.map((item, i) => `
@@ -1555,6 +1574,7 @@ window.addEventListener('popstate', e => {
 // banner edits as they happen, no refresh needed.
 let itemsFirstLoadDone = false;
 let bannersFirstLoadDone = false;
+let customCategoriesFirstLoadDone = false;
 let initialViewDecided = false;
 let latestCatalogueData = {};
 
@@ -1629,12 +1649,23 @@ onValue(ref(db, 'catalogue/reels'), snap => {
   renderReels();
 }, err => console.error(err));
 
+onValue(ref(db, 'catalogue/customCategories'), snap => {
+  const val = snap.val() || {};
+  CUSTOM_CATEGORIES = Object.keys(val)
+    .map(id => ({ id, name: val[id].name || 'Untitled', barcodes: Object.keys(val[id].barcodes || {}), order: val[id].order || 0 }))
+    .sort((a, b) => a.order - b.order);
+  renderCategorySlider();
+  renderGrid();
+  customCategoriesFirstLoadDone = true;
+  maybeDecideInitialView();
+}, err => { console.error(err); customCategoriesFirstLoadDone = true; maybeDecideInitialView(); });
+
 // Deciding the initial screen needs BOTH catalogue items (to resolve a
 // shared ?item= link to an actual product) and home banners (to know
 // whether "home" is even a real destination) to have loaded at least once.
 // Runs exactly once; returns true if it actually made the decision this call.
 function maybeDecideInitialView(){
-  if (initialViewDecided || !itemsFirstLoadDone || !bannersFirstLoadDone) return false;
+  if (initialViewDecided || !itemsFirstLoadDone || !bannersFirstLoadDone || !customCategoriesFirstLoadDone) return false;
   initialViewDecided = true;
 
   // Shareable deep links: ?item=<barcode> opens straight into one product's
@@ -1665,8 +1696,13 @@ function maybeDecideInitialView(){
   }
 
   if (categoryParam) {
-    const key = categoryParam.toLowerCase();
-    ACTIVE_CATEGORY = ALL_ITEMS.some(i => i.categoryKey === key) ? key : 'All';
+    if (categoryParam.startsWith('custom:')) {
+      const exists = CUSTOM_CATEGORIES.some(c => 'custom:' + c.id === categoryParam);
+      ACTIVE_CATEGORY = exists ? categoryParam : 'All';
+    } else {
+      const key = categoryParam.toLowerCase();
+      ACTIVE_CATEGORY = ALL_ITEMS.some(i => i.categoryKey === key) ? key : 'All';
+    }
     applyView('browse');
     renderCategorySlider();
     renderGrid();
