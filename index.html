@@ -43,20 +43,29 @@
   }
   .search-input:focus{ border-color:var(--gold); }
   .search-input::placeholder{ color:var(--ink-soft); }
-  .category-slider{display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 0;}
+  .category-slider-heading{
+    font-family:'Playfair Display', serif; font-size:19px; font-weight:700;
+    color:var(--ink); text-align:center; margin:16px 0 14px;
+  }
+  .category-slider{display:flex; gap:18px; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding:2px 4px 12px;}
   .category-slider::-webkit-scrollbar{display:none;}
   .category-chip{
-    flex:0 0 auto; padding:8px 16px; border-radius:999px; border:1.5px solid #E6DCCB;
-    background:#fff; color:var(--ink-soft); font-family:'Work Sans',sans-serif; font-size:13px; font-weight:600;
-    white-space:nowrap; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+    flex:0 0 auto; width:78px; display:flex; flex-direction:column; align-items:center; gap:8px;
+    background:none; border:none; padding:0; cursor:pointer; font-family:'Work Sans',sans-serif;
   }
-  .category-chip.active{background:var(--oxblood); border-color:var(--oxblood); color:var(--ivory);}
-  .category-chip.has-icon{ padding-left:6px; }
   .chip-icon{
-    width:24px; height:24px; border-radius:50%; overflow:hidden; flex-shrink:0;
-    background:#F0EAD9; display:block;
+    width:78px; height:78px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    background:#F0EAD9; display:flex; align-items:center; justify-content:center;
+    border:2px solid transparent; transition:border-color .15s;
   }
+  .category-chip.active .chip-icon{ border-color:var(--oxblood); }
   .chip-icon img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .chip-icon-fallback{ font-size:22px; font-weight:700; color:var(--gold); }
+  .chip-label{
+    font-size:12px; font-weight:600; color:var(--ink-soft); white-space:nowrap;
+    max-width:78px; overflow:hidden; text-overflow:ellipsis;
+  }
+  .category-chip.active .chip-label{ color:var(--oxblood); font-weight:700; }
 
   main{padding:16px 16px 40px; max-width:920px; margin:0 auto;}
   .grid{display:grid; grid-template-columns: 1fr; gap:18px;}
@@ -384,6 +393,7 @@
   <div class="search-row">
     <input type="text" id="search-input" class="search-input" placeholder="🔍 Search by name or tag…" autocomplete="off">
   </div>
+  <p class="category-slider-heading">Explore Collections</p>
   <div class="category-slider" id="category-slider"></div>
 </div>
 
@@ -553,14 +563,6 @@ let CURRENT_VIEW = 'home';
 function categoryKey(name){
   return (name || '').toString().trim().toLowerCase();
 }
-// Follows a category's "merge into" pointer (set in the Upload Terminal's
-// Group Defaults) to whatever category actually owns the real settings —
-// merging is kept to one level deep on the admin side (a merge target can't
-// itself be merged elsewhere), so a single lookup is always enough here.
-function resolveCategoryKey(rawKey){
-  const settings = CATEGORY_SETTINGS[rawKey];
-  return (settings && settings.mergeInto) ? settings.mergeInto : rawKey;
-}
 function categoryLabel(key){
   if (!key) return 'Other';
   // A custom label (set in the Upload Terminal's Category Defaults) always
@@ -609,6 +611,14 @@ function renderCategorySlider(){
   const chips = ['All', ...keys];
   const nonEmptyCustom = CUSTOM_CATEGORIES.filter(c => c.barcodes.length > 0);
 
+  // A category circle always shows something: the shop's own uploaded icon
+  // first, then an auto-picked product photo as a placeholder, then — if
+  // there are genuinely no photos to fall back on yet — a plain lettered
+  // circle so the row never shows a broken image before photos exist.
+  const iconOrFallback = (iconUrl, label) => iconUrl
+    ? `<img src="${iconUrl}" alt="" loading="lazy">`
+    : `<span class="chip-icon-fallback">${(label || '?').trim().charAt(0).toUpperCase()}</span>`;
+
   slider.innerHTML = chips.map(key => {
     const label = key === 'All' ? 'All' : categoryLabel(key);
     const active = key === ACTIVE_CATEGORY ? ' active' : '';
@@ -618,13 +628,21 @@ function renderCategorySlider(){
     const iconUrl = key === 'All'
       ? null
       : (CATEGORY_ICONS[key] && CATEGORY_ICONS[key].imageUrl) || (ALL_ITEMS.find(i => i.categoryKey === key) || {}).thumbs?.[0];
-    const iconHtml = iconUrl ? `<span class="chip-icon"><img src="${iconUrl}" alt="" loading="lazy"></span>` : '';
-    const hasIconClass = iconUrl ? ' has-icon' : '';
-    return `<button class="category-chip${active}${hasIconClass}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">${iconHtml}${label}</button>`;
+    const iconHtml = key === 'All'
+      ? `<span class="chip-icon-fallback">✦</span>`
+      : iconOrFallback(iconUrl, label);
+    return `<button class="category-chip${active}" data-key="${key === 'All' ? 'All' : key.replace(/"/g,'&quot;')}">
+      <span class="chip-icon">${iconHtml}</span>
+      <span class="chip-label">${label}</span>
+    </button>`;
   }).join('') + nonEmptyCustom.map(cat => {
     const dataKey = 'custom:' + cat.id;
     const active = dataKey === ACTIVE_CATEGORY ? ' active' : '';
-    return `<button class="category-chip${active}" data-key="${dataKey}">${cat.name.replace(/</g,'&lt;')}</button>`;
+    const name = cat.name.replace(/</g,'&lt;');
+    return `<button class="category-chip${active}" data-key="${dataKey}">
+      <span class="chip-icon">${iconOrFallback(null, name)}</span>
+      <span class="chip-label">${name}</span>
+    </button>`;
   }).join('');
 
   slider.querySelectorAll('.category-chip').forEach(chip => {
@@ -659,9 +677,7 @@ function renderGrid(){
     const barcodeSet = new Set((customCat?.barcodes || []).map(b => b.toUpperCase()));
     items = ALL_ITEMS.filter(i => barcodeSet.has(i.catalogKey.toUpperCase()));
   } else {
-    // hideFromHomeCategory only affects this one view — the item still
-    // shows in "All", in search, and in any custom category it's in.
-    items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY && !i.hideFromHomeCategory);
+    items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY);
   }
 
   const grid = document.getElementById('grid');
@@ -1057,18 +1073,10 @@ function rebuildItems(catalogueData){
   }
   
   // A barcode is shown once the shop marks it available AND it has at least
-  // one visible photo, in either the multi-photo or the older single-photo
-  // format — AND it isn't fully hidden, either on the item itself or on the
-  // (resolved) category it belongs to. "Hidden" is a complete kill switch:
-  // excluded here, at the very first filter, means it never appears
-  // anywhere at all — not All, not its category, not any custom category.
+  // one visible photo, in either the multi-photo or the older single-photo format.
   const barcodes = Object.keys(catalogueData).filter(bc => {
     const node = catalogueData[bc];
-    if (!(node && node.available && collectImages(node).length > 0)) return false;
-    if (node.hidden) return false;
-    const catKey = resolveCategoryKey(categoryKey(node.displayName || ''));
-    if (CATEGORY_SETTINGS[catKey] && CATEGORY_SETTINGS[catKey].hidden) return false;
-    return true;
+    return node && node.available && collectImages(node).length > 0;
   });
 
   ALL_ITEMS = barcodes
@@ -1077,11 +1085,7 @@ function rebuildItems(catalogueData){
       const imgEntries = collectImages(node);
       const displayName = node.displayName || '';
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
-      // Resolved through any "merge into" pointer — an item whose category
-      // was merged into another one is treated as belonging to the target
-      // category everywhere from here on: same chip, same defaults.
-      const resolvedCatKey = resolveCategoryKey(categoryKey(displayName));
-      const catDefaults = CATEGORY_SETTINGS[resolvedCatKey] || {};
+      const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
       
       // ULTRA-SAFE: Ensure TAG_DESCRIPTIONS exists and handle gracefully
       const tagDesc = normalizeTagDesc((typeof TAG_DESCRIPTIONS !== 'undefined' && TAG_DESCRIPTIONS) ? TAG_DESCRIPTIONS[bc.toUpperCase()] : null);
@@ -1115,7 +1119,7 @@ function rebuildItems(catalogueData){
         images: imgEntries.map(e => e.url),
         thumbs: imgEntries.map(e => e.thumb), // small versions for the grid/cart — falls back to full image if no thumbnail exists
         uploadedAt: node.uploadedAt || newestImageAt || 0,
-        categoryKey: resolvedCatKey,
+        categoryKey: categoryKey(displayName),
         displayName,
         size: node.displaySize || '',
         price: (typeof node.displayPrice === 'number') ? node.displayPrice : null,
@@ -1126,10 +1130,6 @@ function rebuildItems(catalogueData){
         groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
         sizeChartId: node.sizeChartId || catDefaults.sizeChartId || '',
         scarcityBadge: (scarcityEnabled && scarcityCount) ? scarcityCount : null,
-        // Not a kill switch — this item still shows in "All" and in any
-        // custom category it's been added to. It's excluded only from the
-        // one specific view: browsing its own (resolved) home category.
-        hideFromHomeCategory: !!node.hideFromHomeCategory,
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
