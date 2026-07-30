@@ -564,6 +564,14 @@ let CURRENT_VIEW = 'home';
 function categoryKey(name){
   return (name || '').toString().trim().toLowerCase();
 }
+// Follows a category's "merge into" pointer (set in the Upload Terminal's
+// Group Defaults) to whatever category actually owns the real settings —
+// merging is kept to one level deep on the admin side (a merge target can't
+// itself be merged elsewhere), so a single lookup is always enough here.
+function resolveCategoryKey(rawKey){
+  const settings = CATEGORY_SETTINGS[rawKey];
+  return (settings && settings.mergeInto) ? settings.mergeInto : rawKey;
+}
 function categoryLabel(key){
   if (!key) return 'Other';
   // A custom label (set in the Upload Terminal's Category Defaults) always
@@ -678,7 +686,9 @@ function renderGrid(){
     const barcodeSet = new Set((customCat?.barcodes || []).map(b => b.toUpperCase()));
     items = ALL_ITEMS.filter(i => barcodeSet.has(i.catalogKey.toUpperCase()));
   } else {
-    items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY);
+    // hideFromHomeCategory only affects this one view — the item still
+    // shows in "All", in search, and in any custom category it's in.
+    items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY && !i.hideFromHomeCategory);
   }
 
   const grid = document.getElementById('grid');
@@ -1074,10 +1084,18 @@ function rebuildItems(catalogueData){
   }
   
   // A barcode is shown once the shop marks it available AND it has at least
-  // one visible photo, in either the multi-photo or the older single-photo format.
+  // one visible photo, in either the multi-photo or the older single-photo
+  // format — AND it isn't fully hidden, either on the item itself or on the
+  // (resolved) category it belongs to. "Hidden" is a complete kill switch:
+  // excluded here, at the very first filter, means it never appears
+  // anywhere at all — not All, not its category, not any custom category.
   const barcodes = Object.keys(catalogueData).filter(bc => {
     const node = catalogueData[bc];
-    return node && node.available && collectImages(node).length > 0;
+    if (!(node && node.available && collectImages(node).length > 0)) return false;
+    if (node.hidden) return false;
+    const catKey = resolveCategoryKey(categoryKey(node.displayName || ''));
+    if (CATEGORY_SETTINGS[catKey] && CATEGORY_SETTINGS[catKey].hidden) return false;
+    return true;
   });
 
   ALL_ITEMS = barcodes
@@ -1086,7 +1104,11 @@ function rebuildItems(catalogueData){
       const imgEntries = collectImages(node);
       const displayName = node.displayName || '';
       const newestImageAt = imgEntries.reduce((max, e) => Math.max(max, e.t || 0), 0);
-      const catDefaults = CATEGORY_SETTINGS[categoryKey(displayName)] || {};
+      // Resolved through any "merge into" pointer — an item whose category
+      // was merged into another one is treated as belonging to the target
+      // category everywhere from here on: same chip, same defaults.
+      const resolvedCatKey = resolveCategoryKey(categoryKey(displayName));
+      const catDefaults = CATEGORY_SETTINGS[resolvedCatKey] || {};
       
       // ULTRA-SAFE: Ensure TAG_DESCRIPTIONS exists and handle gracefully
       const tagDesc = normalizeTagDesc((typeof TAG_DESCRIPTIONS !== 'undefined' && TAG_DESCRIPTIONS) ? TAG_DESCRIPTIONS[bc.toUpperCase()] : null);
@@ -1114,15 +1136,31 @@ function rebuildItems(catalogueData){
       const scarcityCountFromCat = (typeof catDefaults.scarcityCount === 'number' && catDefaults.scarcityCount > 0) ? catDefaults.scarcityCount : null;
       const scarcityCount = scarcityCountFromNode !== null ? scarcityCountFromNode : scarcityCountFromTag !== null ? scarcityCountFromTag : scarcityCountFromCat;
 
+      // Size suffix: only added at all if the category has "Display Size"
+      // turned on (set in Group Defaults) — a tag's own mode/custom-text
+      // override that, and a tag can also kill the size line entirely for
+      // itself even though the group shows it for everything else.
+      let sizeDisplay = node.displaySize || '';
+      if (node.hideSize) {
+        sizeDisplay = '';
+      } else if (sizeDisplay && catDefaults.sizeSuffixEnabled) {
+        const mode = node.sizeSuffixMode || catDefaults.sizeSuffixMode || 'inch';
+        const suffix = mode === 'inch' ? ' inch'
+          : mode === 'cm' ? ' cm'
+          : mode === 'custom' ? (' ' + (node.sizeSuffixCustomText || catDefaults.sizeSuffixCustomText || '')).trimEnd()
+          : '';
+        sizeDisplay = sizeDisplay + suffix;
+      }
+
       return {
         barcode: node.activeBarcode || bc,
         catalogKey: bc, // stable identifier for deep links — doesn't change even if a linked group's active tag does
         images: imgEntries.map(e => e.url),
         thumbs: imgEntries.map(e => e.thumb), // small versions for the grid/cart — falls back to full image if no thumbnail exists
         uploadedAt: node.uploadedAt || newestImageAt || 0,
-        categoryKey: categoryKey(displayName),
+        categoryKey: resolvedCatKey,
         displayName,
-        size: node.displaySize || '',
+        size: sizeDisplay,
         price: (typeof node.displayPrice === 'number') ? node.displayPrice : null,
         weight: (typeof node.displayWeight === 'number') ? node.displayWeight : null,
         showWeight,
@@ -1131,6 +1169,10 @@ function rebuildItems(catalogueData){
         groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
         sizeChartId: node.sizeChartId || catDefaults.sizeChartId || '',
         scarcityBadge: (scarcityEnabled && scarcityCount) ? scarcityCount : null,
+        // Not a kill switch — this item still shows in "All" and in any
+        // custom category it's been added to. It's excluded only from the
+        // one specific view: browsing its own (resolved) home category.
+        hideFromHomeCategory: !!node.hideFromHomeCategory,
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
