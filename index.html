@@ -858,6 +858,7 @@ function renderLightboxDescription(item){
   const metaBits = [];
   if (purity) metaBits.push(`Purity: <b>${escapeHtml(purity)}</b>`);
   if (showWeight && item.weight != null) metaBits.push(`Weight: <b>${item.weight}g</b>`);
+  if (item.showWidth && item.width) metaBits.push(`Width: <b>${escapeHtml(item.width)}</b>`);
 
   let html = '';
   if (metaBits.length) html += `<p class="meta-line">${metaBits.join(' &middot; ')}</p>`;
@@ -1121,6 +1122,13 @@ function rebuildItems(catalogueData){
       const showWeight = typeof node.showWeight === 'boolean' ? node.showWeight
         : (typeof catDefaults.showWeight === 'boolean' ? catDefaults.showWeight : false);
 
+      // Width mirrors showWeight exactly: the value itself (node.width /
+      // catDefaults.width) is always available for AI Enhance's {{WIDTH}}
+      // placeholder regardless of this toggle — showWidth only controls
+      // whether that value actually renders on the catalogue.
+      const showWidth = typeof node.showWidth === 'boolean' ? node.showWidth
+        : (typeof catDefaults.showWidth === 'boolean' ? catDefaults.showWidth : false);
+
       // Same pattern: a shop-set toggle/number always wins over the
       // category default, and "explicitly off" has to count as a real
       // choice, not just "unset" — otherwise a category default of "on"
@@ -1163,6 +1171,8 @@ function rebuildItems(catalogueData){
         price: (typeof node.displayPrice === 'number') ? node.displayPrice : null,
         weight: (typeof node.displayWeight === 'number') ? node.displayWeight : null,
         showWeight,
+        width: node.width || catDefaults.width || '',
+        showWidth,
         purity: node.purity || catDefaults.purity || '',
         groupRemarks: node.groupRemarks || catDefaults.groupRemarks || '',
         groupNameOverride: node.nameOverride || catDefaults.nameOverride || '',
