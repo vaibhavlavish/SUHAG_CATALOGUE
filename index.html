@@ -1136,20 +1136,19 @@ function rebuildItems(catalogueData){
       const scarcityCountFromCat = (typeof catDefaults.scarcityCount === 'number' && catDefaults.scarcityCount > 0) ? catDefaults.scarcityCount : null;
       const scarcityCount = scarcityCountFromNode !== null ? scarcityCountFromNode : scarcityCountFromTag !== null ? scarcityCountFromTag : scarcityCountFromCat;
 
-      // Size suffix: only added at all if the category has "Display Size"
-      // turned on (set in Group Defaults) — a tag's own mode/custom-text
-      // override that, and a tag can also kill the size line entirely for
-      // itself even though the group shows it for everything else.
-      let sizeDisplay = node.displaySize || '';
-      if (node.hideSize) {
-        sizeDisplay = '';
-      } else if (sizeDisplay && catDefaults.sizeSuffixEnabled) {
+      // "Display Size" (set per-category in Group Defaults) is now the
+      // on/off switch for the size line itself, not just its suffix — off
+      // means size doesn't show at all for this category, no matter what
+      // the POS has on record. A tag can still kill it individually even
+      // when the group has it on, via its own "Hide size" toggle.
+      let sizeDisplay = '';
+      if (catDefaults.sizeSuffixEnabled && !node.hideSize && node.displaySize) {
         const mode = node.sizeSuffixMode || catDefaults.sizeSuffixMode || 'inch';
         const suffix = mode === 'inch' ? ' inch'
           : mode === 'cm' ? ' cm'
           : mode === 'custom' ? (' ' + (node.sizeSuffixCustomText || catDefaults.sizeSuffixCustomText || '')).trimEnd()
           : '';
-        sizeDisplay = sizeDisplay + suffix;
+        sizeDisplay = node.displaySize + suffix;
       }
 
       return {
