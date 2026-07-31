@@ -862,6 +862,7 @@ function renderLightboxDescription(item){
 
   let html = '';
   if (metaBits.length) html += `<p class="meta-line">${metaBits.join(' &middot; ')}</p>`;
+  if (item.showWidth && item.width) html += `<p style="margin:0 0 6px; font-size:11px; color:var(--ink-soft); font-style:italic;">Width shown is for visualisation purposes only.</p>`;
   if (tagDesc.text) html += `<p class="desc-text">${escapeHtml(tagDesc.text)}</p>`;
   if (item.groupRemarks) html += `<p class="desc-text">${escapeHtml(item.groupRemarks)}</p>`;
   el.innerHTML = html;
