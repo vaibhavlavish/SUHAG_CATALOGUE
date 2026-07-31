@@ -35,7 +35,8 @@
   .shop-name em{color:var(--gold); font-style:normal;}
   .tagline{margin:4px 0 0; font-size:13px; color:var(--gold-soft);}
 
-  .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:28px; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25);}
+  .toolbar{background:var(--ivory); padding:12px 16px 10px; position:sticky; top:28px; z-index:5; box-shadow:0 6px 14px -10px rgba(0,0,0,.25); transition:transform .25s ease;}
+  .toolbar.toolbar-hidden{ transform:translateY(-100%); }
   .search-row{ margin-bottom:10px; }
   .search-input{
     width:100%; padding:10px 14px; border-radius:999px; border:1.5px solid #E6DCCB;
@@ -394,7 +395,7 @@
   </div>
 </div>
 
-<div class="toolbar">
+<div class="toolbar" id="toolbar">
   <div class="search-row">
     <input type="text" id="search-input" class="search-input" placeholder="🔍 Search by name or tag…" autocomplete="off">
   </div>
@@ -1411,6 +1412,32 @@ document.getElementById('search-input').addEventListener('input', () => {
   }
   renderGrid();
 });
+
+// The search bar + category row is sticky (stays pinned while browsing),
+// which is exactly why it needs to get out of the way on its own — sliding
+// up out of view on scroll-down, and back down as soon as the person
+// scrolls up again, rather than permanently eating screen space.
+(() => {
+  const toolbarEl = document.getElementById('toolbar');
+  let lastScrollY = window.scrollY;
+  let ticking = false;
+
+  function updateToolbarVisibility(){
+    const currentY = window.scrollY;
+    const scrollingDown = currentY > lastScrollY;
+    const pastThreshold = currentY > 80; // stay visible near the very top regardless of direction
+    toolbarEl.classList.toggle('toolbar-hidden', scrollingDown && pastThreshold);
+    lastScrollY = currentY;
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(updateToolbarVisibility);
+      ticking = true;
+    }
+  }, { passive: true });
+})();
 
 // ---------- Cart & Checkout ----------
 // Cart lives in this browser only (localStorage) — nothing about it touches
