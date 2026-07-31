@@ -88,6 +88,10 @@
     position:absolute; right:8px; top:8px; font-size:10.5px; font-weight:700; letter-spacing:.2px;
     color:var(--ivory); background:var(--oxblood); padding:4px 8px; border-radius:6px;
   }
+  .card-photo .price-badge{
+    position:absolute; right:8px; bottom:8px; font-size:11.5px; font-weight:700; letter-spacing:.2px;
+    color:var(--ink); background:rgba(255,255,255,.85); padding:3px 8px; border-radius:6px;
+  }
 
   .state-msg{text-align:center; color:var(--ink-soft); font-size:13.5px; padding:60px 20px;}
   .state-msg.hide{display:none;}
@@ -698,6 +702,7 @@ function renderGrid(){
         <img src="${item.thumbs[0]}" alt="" loading="lazy">
         <span class="tag">${item.barcode}</span>
         ${item.scarcityBadge ? `<span class="scarcity-badge">${item.scarcityBadge === 1 ? 'Only 1 Available' : `Only ${item.scarcityBadge} Left`}</span>` : ''}
+        ${item.price != null ? `<span class="price-badge">${formatPrice(item.price)}</span>` : ''}
       </div>
     </div>
   `).join('');
