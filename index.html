@@ -1549,6 +1549,16 @@ function cartItemFromCatalogueItem(item){
   };
 }
 
+// A cart entry only ever stores a stable key plus a fallback snapshot from
+// the moment it was added — that snapshot is ONLY ever shown if the live
+// item can no longer be found at all (sold, hidden, or deleted since).
+// Everything else (price, name, photo) always resolves live here, so a
+// cart left sitting for days never shows a stale rate or a since-changed
+// name, and never lets someone check out on something no longer available.
+function resolveLiveCartItem(c){
+  return ALL_ITEMS.find(i => i.catalogKey === c.catalogKey) || null;
+}
+
 function saveCart(){
   try { localStorage.setItem('suhagCart', JSON.stringify(CART)); } catch (e) { /* storage unavailable — cart just won't persist across reloads */ }
 }
@@ -1610,26 +1620,43 @@ function renderCartDrawer(){
     checkoutBtn.disabled = true;
     return;
   }
-  checkoutBtn.disabled = false;
 
-  itemsEl.innerHTML = CART.map(c => `
-    <div class="cart-item-row" data-key="${c.catalogKey}">
-      <div class="thumb">${c.image ? `<img src="${c.image}" alt="">` : ''}</div>
-      <div class="info">
-        <div class="name">${escapeHtml(c.displayName || 'Jewellery item')} · ${escapeHtml(c.barcode)}</div>
-        <div class="price">${c.price != null ? formatPrice(c.price) : 'Price on request'}</div>
-      </div>
-      <button class="remove-btn" data-key="${c.catalogKey}" title="Remove">✕</button>
-    </div>
-  `).join('');
+  itemsEl.innerHTML = CART.map(c => {
+    const live = resolveLiveCartItem(c);
+    if (!live) {
+      // Sold, hidden, or removed since this was added — the stale snapshot
+      // is only ever used here, purely so the customer can still tell which
+      // item this was, never for pricing or checkout.
+      return `
+        <div class="cart-item-row" data-key="${c.catalogKey}" style="opacity:.5;">
+          <div class="thumb">${c.image ? `<img src="${c.image}" alt="">` : ''}</div>
+          <div class="info">
+            <div class="name">${escapeHtml(c.displayName || 'Jewellery item')} · ${escapeHtml(c.barcode)}</div>
+            <div class="price">No longer available</div>
+          </div>
+          <button class="remove-btn" data-key="${c.catalogKey}" title="Remove">✕</button>
+        </div>`;
+    }
+    return `
+      <div class="cart-item-row" data-key="${c.catalogKey}">
+        <div class="thumb">${live.thumbs && live.thumbs[0] ? `<img src="${live.thumbs[0]}" alt="">` : ''}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(displayNameForItem(live))} · ${escapeHtml(live.barcode)}</div>
+          <div class="price">${live.price != null ? formatPrice(live.price) : 'Price on request'}</div>
+        </div>
+        <button class="remove-btn" data-key="${c.catalogKey}" title="Remove">✕</button>
+      </div>`;
+  }).join('');
 
   itemsEl.querySelectorAll('.remove-btn').forEach(btn => {
     btn.addEventListener('click', () => removeFromCart(btn.dataset.key));
   });
 
-  const knownTotal = CART.reduce((sum, c) => sum + (c.price || 0), 0);
-  const anyUnknown = CART.some(c => c.price == null);
+  const liveItems = CART.map(resolveLiveCartItem).filter(Boolean);
+  const knownTotal = liveItems.reduce((sum, i) => sum + (i.price || 0), 0);
+  const anyUnknown = liveItems.some(i => i.price == null);
   totalRow.innerHTML = `<span>Total</span><span>${formatPrice(knownTotal)}${anyUnknown ? ' +' : ''}</span>`;
+  checkoutBtn.disabled = liveItems.length === 0;
 }
 
 function openCartDrawerDom(){ document.getElementById('cart-drawer').classList.add('open'); renderCartDrawer(); }
@@ -1668,7 +1695,9 @@ document.getElementById('cart-drawer').addEventListener('click', e => { if (e.ta
 
 document.getElementById('cart-checkout-btn').addEventListener('click', () => {
   if (!CART.length) return;
-  CHECKOUT_ITEMS = CART;
+  const liveItems = CART.map(resolveLiveCartItem).filter(Boolean);
+  if (!liveItems.length) return; // everything in the cart is stale — button should already be disabled in this case
+  CHECKOUT_ITEMS = liveItems.map(cartItemFromCatalogueItem);
   CHECKOUT_SOURCE = 'cart';
   closeCartDrawerDom();
   goToScreen('checkout');
