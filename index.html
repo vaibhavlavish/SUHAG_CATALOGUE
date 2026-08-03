@@ -532,7 +532,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // Same Firebase project as the main POS app. This page reads ONLY
 // `catalogue/items` — including the displayName/displaySize/displayPrice
@@ -803,9 +803,27 @@ function renderRelatedItems(item){
 
 // User tapped a photo — opens the popup AND records a history entry, so the
 // phone/browser back button closes the popup instead of leaving the site.
+// Records a unique "view" per visitor per item, for popularity ranking
+// only — never shown on the catalogue itself, only in Upload Terminal's own
+// insights. One visitor's browser only ever counts once per barcode, no
+// matter how many times they reopen it (tracked via localStorage) — a
+// transaction (not a plain read-then-write) so two visitors opening the
+// same item at the same moment can't clobber each other's increment.
+function recordItemView(barcode){
+  try {
+    const seenKey = 'viewed_' + barcode;
+    if (localStorage.getItem(seenKey)) return;
+    localStorage.setItem(seenKey, '1');
+    runTransaction(ref(db, 'catalogue/itemViews/' + barcode), current => (current || 0) + 1);
+  } catch (e) {
+    console.error('[views] could not record', e);
+  }
+}
+
 function openLightbox(item){
   openLightboxDom(item);
   history.pushState({ screen: 'lightbox', category: ACTIVE_CATEGORY, barcode: item.barcode }, '', location.pathname);
+  recordItemView(item.catalogKey);
 }
 
 function renderLightboxImage(){
