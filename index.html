@@ -70,6 +70,11 @@
   .category-chip.active .chip-label{ color:var(--oxblood); font-weight:700; }
 
   main{padding:16px 16px 40px; max-width:920px; margin:0 auto;}
+  .sort-row{display:flex; justify-content:flex-end; margin-bottom:14px;}
+  .sort-row select{
+    font-family:'Work Sans',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft);
+    background:#fff; border:1.5px solid #E6DCCB; border-radius:8px; padding:7px 10px; cursor:pointer;
+  }
   .grid{display:grid; grid-template-columns: 1fr; gap:18px;}
   @media (min-width:700px){
     .grid{grid-template-columns: repeat(3, 1fr); gap:18px;}
@@ -417,6 +422,16 @@
 
 <div id="browse-view" class="view-hidden">
   <main>
+    <div class="sort-row">
+      <select id="sort-select">
+        <option value="default">Sort: Newest First</option>
+        <option value="popularity">Popularity</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="weight-asc">Weight: Low to High</option>
+        <option value="weight-desc">Weight: High to Low</option>
+      </select>
+    </div>
     <div class="grid" id="grid"></div>
     <p class="state-msg hide" id="empty-msg">No pieces in this category right now — try another, or message us directly.</p>
     <p class="state-msg" id="loading-msg">Loading the collection…</p>
@@ -565,6 +580,8 @@ let TAG_DESCRIPTIONS = {}; // { TAGBARCODE: string (legacy) | {text, showWeight,
 let SIZE_CHARTS = {}; // { chartId: {name, imageUrl} }
 let CATEGORY_ICONS = {}; // { categoryKey: {imageUrl} } — a custom graphic set by the shop, takes priority over the auto-picked product photo
 let CATEGORY_SETTINGS = {}; // { categoryKey: {purity, showWeight, groupRemarks, sizeChartId, nameOverride} } — defaults every item in that category inherits unless it has its own override
+let ITEM_VIEWS = {}; // { barcode: count } — unique-visitor view counts recorded by openLightbox, read here only to power the Popularity sort
+let CURRENT_SORT = 'default';
 let HOME_BANNERS = [];   // [{ id, imageUrl, categoryKey }], ordered
 let TRENDING_TAGS = []; // ordered array of tag/barcode strings, set from the Upload Terminal
 let REELS = []; // [{ id, reelUrl, thumbnailUrl, itemBarcode, categoryKey, order }] — set from the Upload Terminal
@@ -675,6 +692,29 @@ function renderCategorySlider(){
   });
 }
 
+// Missing values (no price set, no weight on record) always sink to the
+// bottom regardless of direction — an unpriced item jumping to the top of
+// "Price: Low to High" would look like a glitch, not a bargain.
+function applySortOrder(items, sortMode){
+  if (sortMode === 'default') return items;
+  const byNumeric = (key, dir) => (a, b) => {
+    const av = a[key], bv = b[key];
+    const aMissing = (av == null);
+    const bMissing = (bv == null);
+    if (aMissing && bMissing) return 0;
+    if (aMissing) return 1;
+    if (bMissing) return -1;
+    return dir === 'asc' ? av - bv : bv - av;
+  };
+  const sorted = items.slice();
+  if (sortMode === 'popularity') return sorted.sort(byNumeric('views', 'desc'));
+  if (sortMode === 'price-asc') return sorted.sort(byNumeric('price', 'asc'));
+  if (sortMode === 'price-desc') return sorted.sort(byNumeric('price', 'desc'));
+  if (sortMode === 'weight-asc') return sorted.sort(byNumeric('weight', 'asc'));
+  if (sortMode === 'weight-desc') return sorted.sort(byNumeric('weight', 'desc'));
+  return sorted;
+}
+
 function renderGrid(){
   const searchVal = (document.getElementById('search-input')?.value || '').trim().toUpperCase();
 
@@ -699,6 +739,8 @@ function renderGrid(){
     // shows in "All", in search, and in any custom category it's in.
     items = ALL_ITEMS.filter(i => i.categoryKey === ACTIVE_CATEGORY && !i.hideFromHomeCategory);
   }
+
+  items = applySortOrder(items, CURRENT_SORT);
 
   const grid = document.getElementById('grid');
   grid.innerHTML = items.map((item, i) => `
@@ -1211,6 +1253,7 @@ function rebuildItems(catalogueData){
         // custom category it's been added to. It's excluded only from the
         // one specific view: browsing its own (resolved) home category.
         hideFromHomeCategory: !!node.hideFromHomeCategory,
+        views: Number(ITEM_VIEWS[bc]) || 0,
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
@@ -1432,6 +1475,11 @@ document.getElementById('search-input').addEventListener('input', () => {
     goToView('browse');
     renderCategorySlider();
   }
+  renderGrid();
+});
+
+document.getElementById('sort-select').addEventListener('change', e => {
+  CURRENT_SORT = e.target.value;
   renderGrid();
 });
 
@@ -1746,6 +1794,13 @@ onValue(ref(db, 'catalogue/items'), snap => {
 // its own override saved (which always wins over the category default).
 onValue(ref(db, 'catalogue/categorySettings'), snap => {
   CATEGORY_SETTINGS = snap.val() || {};
+  if (Object.keys(latestCatalogueData).length) rebuildItems(latestCatalogueData);
+}, err => console.error(err));
+
+// Powers the Popularity sort option only — recorded by openLightbox
+// elsewhere in this file, never displayed as a number anywhere.
+onValue(ref(db, 'catalogue/itemViews'), snap => {
+  ITEM_VIEWS = snap.val() || {};
   if (Object.keys(latestCatalogueData).length) rebuildItems(latestCatalogueData);
 }, err => console.error(err));
 
