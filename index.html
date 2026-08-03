@@ -452,6 +452,10 @@
       <input type="tel" id="checkout-phone" autocomplete="tel" placeholder="10-digit mobile number">
     </div>
     <div class="field">
+      <label>Email address</label>
+      <input type="email" id="checkout-email" autocomplete="email" placeholder="e.g. priya@email.com">
+    </div>
+    <div class="field">
       <label>Delivery address</label>
       <textarea id="checkout-address" rows="3" placeholder="House/street, area, landmark"></textarea>
     </div>
@@ -1609,6 +1613,7 @@ document.getElementById('checkout-submit-btn').addEventListener('click', () => {
   const statusEl = document.getElementById('checkout-status');
   const name = document.getElementById('checkout-name').value.trim();
   const phone = document.getElementById('checkout-phone').value.trim();
+  const email = document.getElementById('checkout-email').value.trim();
   const address = document.getElementById('checkout-address').value.trim();
   const city = document.getElementById('checkout-city').value.trim();
   const pincode = document.getElementById('checkout-pincode').value.trim();
@@ -1616,6 +1621,7 @@ document.getElementById('checkout-submit-btn').addEventListener('click', () => {
   if (!CHECKOUT_ITEMS.length) { statusEl.textContent = 'Nothing to check out.'; return; }
   if (!name) { statusEl.textContent = 'Please enter your name.'; return; }
   if (!/^\d{10}$/.test(phone.replace(/\D/g, '').slice(-10))) { statusEl.textContent = 'Please enter a valid 10-digit phone number.'; return; }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { statusEl.textContent = 'Please enter a valid email address.'; return; }
   if (!address) { statusEl.textContent = 'Please enter your delivery address.'; return; }
   if (!city) { statusEl.textContent = 'Please enter your city.'; return; }
   if (!/^\d{6}$/.test(pincode)) { statusEl.textContent = 'Please enter a valid 6-digit pincode.'; return; }
@@ -1635,6 +1641,7 @@ document.getElementById('checkout-submit-btn').addEventListener('click', () => {
     'Delivery details:',
     `Name: ${name}`,
     `Phone: ${phone}`,
+    ...(email ? [`Email: ${email}`] : []),
     `Address: ${address}`,
     `City: ${city}`,
     `Pincode: ${pincode}`,
