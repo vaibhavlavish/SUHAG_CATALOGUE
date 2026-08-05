@@ -2096,7 +2096,12 @@ function fetchGoogleReviews(){
         return;
       }
       LAST_FETCHED_PLACE = place;
-      renderGoogleReviews(place);
+      // Only render immediately if we already know which reviews are
+      // hidden — otherwise a hidden review could flash on screen for a
+      // moment before the Firebase listener catches up. If it isn't ready
+      // yet, that listener already re-renders as soon as it is (below) —
+      // "Loading reviews…" just stays up a little longer instead.
+      if (hiddenListLoaded) renderGoogleReviews(place);
     }
   );
 }
@@ -2139,7 +2144,11 @@ function renderGoogleReviews(place){
   `).join('');
 }
 
-loadGoogleReviews();
+// Deliberately delayed — Reviews is below-the-fold, secondary content, and
+// starting Google's Maps API script immediately at page load competed with
+// the catalogue's own photos and data for bandwidth right when it matters
+// most. A short delay lets the actual collection load first.
+setTimeout(loadGoogleReviews, 1500);
 </script>
 
 </body>
