@@ -758,7 +758,14 @@ function renderGrid(){
   // it's filed under.
   let items;
   if (searchVal) {
-    items = ALL_ITEMS.filter(i => (i.displayName || '').toUpperCase().includes(searchVal) || i.barcode.toUpperCase().includes(searchVal));
+    // Matches on: the raw stock name, the resolved display name (which may
+    // differ if a tag or group has its own name override set), the
+    // barcode/tag, and the hidden #keywords set in Group Defaults/Tag-
+    // Specific — all four combine into one search, not just the name.
+    items = ALL_ITEMS.filter(i => {
+      const haystack = [i.displayName || '', displayNameForItem(i), i.barcode, i.searchKeywords || ''].join(' ').toUpperCase();
+      return haystack.includes(searchVal);
+    });
   } else if (ACTIVE_CATEGORY === 'All') {
     items = ALL_ITEMS;
   } else if (ACTIVE_CATEGORY.startsWith('custom:')) {
@@ -1311,6 +1318,10 @@ function rebuildItems(catalogueData){
         // one specific view: browsing its own (resolved) home category.
         hideFromHomeCategory: !!node.hideFromHomeCategory,
         views: Number(ITEM_VIEWS[bc]) || 0,
+        // Never rendered anywhere — combines the category's keywords with
+        // this tag's own (both count, neither replaces the other) purely
+        // to widen what a search term can match against.
+        searchKeywords: [catDefaults.keywords, node.keywords].filter(Boolean).join(' '),
       };
     })
     .sort((a, b) => b.uploadedAt - a.uploadedAt); // newest arrivals first
