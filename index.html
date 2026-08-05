@@ -211,9 +211,11 @@
   .lb-details-arrow{ transition:transform .2s ease; color:var(--ink-soft); }
   .lb-details-arrow.open{ transform:rotate(180deg); }
   .lb-details-panel{ padding:12px 4px 2px; }
-  .lb-details-panel .meta-line{ font-size:12.5px; color:var(--ink-soft); margin:0 0 6px; }
+  .lb-details-panel .meta-line{ font-size:12.5px; color:var(--ink-soft); }
   .lb-details-panel .meta-line b{ color:var(--ink); font-weight:700; }
-  .lb-width-disclaimer{ margin:0; font-size:11px; color:var(--ink-soft); font-style:italic; }
+  .meta-line-item{ display:block; margin:0 0 8px; }
+  .meta-line-item:last-child{ margin-bottom:0; }
+  .lb-width-disclaimer{ font-size:11px; color:var(--ink-soft); font-style:italic; }
   .lb-cart-btn{
     display:block; width:100%; text-align:center; border-radius:11px; padding:11px 0; margin-top:10px;
     background:none; border:1.5px solid var(--oxblood); color:var(--oxblood); font-weight:700; font-size:13.5px;
@@ -548,8 +550,7 @@
           <span class="lb-details-arrow" id="lightbox-details-arrow">▾</span>
         </button>
         <div class="lb-details-panel" id="lightbox-details-panel" style="display:none;">
-          <p class="meta-line" id="lightbox-details-content"></p>
-          <p class="lb-width-disclaimer" id="lightbox-width-disclaimer" style="display:none;">Width shown is for visualisation purposes only.</p>
+          <div class="meta-line" id="lightbox-details-content"></div>
         </div>
       </div>
       <div class="lb-related" id="lb-related" style="display:none;">
@@ -961,18 +962,17 @@ function renderLightboxDescription(item){
 
   // Purity/Weight/Width live in the collapsible "Product Details" section
   // below Share, not inline here — the whole section stays hidden if there's
-  // genuinely nothing to show in it.
+  // genuinely nothing to show in it. One per line, not joined together.
   const metaBits = [];
   if (purity) metaBits.push(`Purity: <b>${escapeHtml(purity)}</b>`);
   if (showWeight && item.weight != null) metaBits.push(`Weight: <b>${item.weight}g</b>`);
-  if (item.showWidth && item.width) metaBits.push(`Width: <b>${escapeHtml(item.width)}</b>`);
+  if (item.showWidth && item.width) metaBits.push(`Width: <b>${escapeHtml(item.width)}</b> <span class="lb-width-disclaimer">(for visualisation only)</span>`);
 
   const detailsWrap = document.getElementById('lightbox-product-details');
   const detailsPanel = document.getElementById('lightbox-details-panel');
   const detailsArrow = document.getElementById('lightbox-details-arrow');
   if (metaBits.length) {
-    document.getElementById('lightbox-details-content').innerHTML = metaBits.join(' &middot; ');
-    document.getElementById('lightbox-width-disclaimer').style.display = (item.showWidth && item.width) ? 'block' : 'none';
+    document.getElementById('lightbox-details-content').innerHTML = metaBits.map(b => `<span class="meta-line-item">${b}</span>`).join('');
     detailsWrap.style.display = 'block';
   } else {
     detailsWrap.style.display = 'none';
