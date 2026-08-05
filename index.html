@@ -201,6 +201,19 @@
     font-family:'Work Sans',sans-serif; cursor:pointer;
   }
   .lb-share-btn:active{ transform:scale(.98); }
+  .lb-product-details{ margin-top:10px; }
+  .lb-details-toggle{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:none; border:1.5px solid #E6DCCB; border-radius:11px; padding:11px 14px;
+    font-family:'Work Sans',sans-serif; font-weight:700; font-size:13.5px; color:var(--ink); cursor:pointer;
+  }
+  .lb-details-toggle:active{ background:#F7F2E7; }
+  .lb-details-arrow{ transition:transform .2s ease; color:var(--ink-soft); }
+  .lb-details-arrow.open{ transform:rotate(180deg); }
+  .lb-details-panel{ padding:12px 4px 2px; }
+  .lb-details-panel .meta-line{ font-size:12.5px; color:var(--ink-soft); margin:0 0 6px; }
+  .lb-details-panel .meta-line b{ color:var(--ink); font-weight:700; }
+  .lb-width-disclaimer{ margin:0; font-size:11px; color:var(--ink-soft); font-style:italic; }
   .lb-cart-btn{
     display:block; width:100%; text-align:center; border-radius:11px; padding:11px 0; margin-top:10px;
     background:none; border:1.5px solid var(--oxblood); color:var(--oxblood); font-weight:700; font-size:13.5px;
@@ -529,6 +542,16 @@
       <button class="lb-buynow-btn" id="lightbox-buynow-btn" type="button">Buy Now</button>
       <button class="lb-cart-btn" id="lightbox-cart-btn" type="button">+ Add to Cart</button>
       <button class="lb-share-btn" id="lightbox-share" type="button">🔗 Share This Piece</button>
+      <div class="lb-product-details" id="lightbox-product-details" style="display:none;">
+        <button class="lb-details-toggle" id="lightbox-details-toggle" type="button">
+          <span>Product Details</span>
+          <span class="lb-details-arrow" id="lightbox-details-arrow">▾</span>
+        </button>
+        <div class="lb-details-panel" id="lightbox-details-panel" style="display:none;">
+          <p class="meta-line" id="lightbox-details-content"></p>
+          <p class="lb-width-disclaimer" id="lightbox-width-disclaimer" style="display:none;">Width shown is for visualisation purposes only.</p>
+        </div>
+      </div>
       <div class="lb-related" id="lb-related" style="display:none;">
         <p class="lb-related-heading">You Might Also Like</p>
         <div class="lb-related-scroll" id="lb-related-scroll"></div>
@@ -936,14 +959,29 @@ function renderLightboxDescription(item){
   const purity = tagDesc.purity || item.purity;
   const showWeight = item.showWeight || tagDesc.showWeight;
 
+  // Purity/Weight/Width live in the collapsible "Product Details" section
+  // below Share, not inline here — the whole section stays hidden if there's
+  // genuinely nothing to show in it.
   const metaBits = [];
   if (purity) metaBits.push(`Purity: <b>${escapeHtml(purity)}</b>`);
   if (showWeight && item.weight != null) metaBits.push(`Weight: <b>${item.weight}g</b>`);
   if (item.showWidth && item.width) metaBits.push(`Width: <b>${escapeHtml(item.width)}</b>`);
 
+  const detailsWrap = document.getElementById('lightbox-product-details');
+  const detailsPanel = document.getElementById('lightbox-details-panel');
+  const detailsArrow = document.getElementById('lightbox-details-arrow');
+  if (metaBits.length) {
+    document.getElementById('lightbox-details-content').innerHTML = metaBits.join(' &middot; ');
+    document.getElementById('lightbox-width-disclaimer').style.display = (item.showWidth && item.width) ? 'block' : 'none';
+    detailsWrap.style.display = 'block';
+  } else {
+    detailsWrap.style.display = 'none';
+  }
+  // Collapsed by default every time a (possibly different) item opens.
+  detailsPanel.style.display = 'none';
+  detailsArrow.classList.remove('open');
+
   let html = '';
-  if (metaBits.length) html += `<p class="meta-line">${metaBits.join(' &middot; ')}</p>`;
-  if (item.showWidth && item.width) html += `<p style="margin:0 0 6px; font-size:11px; color:var(--ink-soft); font-style:italic;">Width shown is for visualisation purposes only.</p>`;
   if (tagDesc.text) html += `<p class="desc-text">${escapeHtml(tagDesc.text)}</p>`;
   if (item.groupRemarks) html += `<p class="desc-text">${escapeHtml(item.groupRemarks)}</p>`;
   el.innerHTML = html;
@@ -995,6 +1033,14 @@ document.getElementById('lightbox-share').addEventListener('click', async () => 
   } catch (e) {
     prompt('Copy this link:', url);
   }
+});
+
+document.getElementById('lightbox-details-toggle').addEventListener('click', () => {
+  const panel = document.getElementById('lightbox-details-panel');
+  const arrow = document.getElementById('lightbox-details-arrow');
+  const nowOpen = panel.style.display === 'none';
+  panel.style.display = nowOpen ? 'block' : 'none';
+  arrow.classList.toggle('open', nowOpen);
 });
 
 function closeLightboxDom(){ document.getElementById('lightbox').classList.remove('open'); }
